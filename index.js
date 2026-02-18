@@ -1,6 +1,6 @@
 require("dotenv").config();
 const express = require("express");
-const routes = require("../routes"); // Automatically looks for routes/index.js
+const routes = require("./routes"); // Automatically looks for routes/index.js
 const cors = require("cors"); // Import the cors middleware
 
 const app = express();
@@ -19,7 +19,7 @@ app.use(cors(corsOptions));
 app.use("/api", routes);
 
 if (process.env.NODE_ENV !== "production") {
-  const { sequelize } = require("../database");
+  const { sequelize } = require("./database");
   sequelize.sync().then(() => {
     app.listen(process.env.PORT, () =>
       console.log(
@@ -28,7 +28,7 @@ if (process.env.NODE_ENV !== "production") {
     );
   });
 } else {
-  const { sequelize } = require("../database");
+  const { sequelize } = require("./database");
 }
 
 module.exports = app;
