@@ -1,21 +1,21 @@
 const { Sequelize, DataTypes, Model } = require("sequelize");
 
-// const sequelize = new Sequelize({
-//   dialect: "sqlite",
-//   storage: "./mtg_database.sqlite",
-//   logging: true,
-// });
-
-const sequelize = new Sequelize("gt-railway", "root", "gt-railway-password", {
-  host: "mysql://root:gt-railway-password@mysql.railway.internal:3306/gt-railway",
-  dialect: "mysql", // Specify the dialect as 'mysql'
-  port: 3306,
-  // Optional: other dialectOptions for mysql2
-  // dialectOptions: {
-  //   connectTimeout: 1000,
-  //   ...
-  // },
+const sequelize = new Sequelize({
+  dialect: "sqlite",
+  storage: "./mtg_database.sqlite",
+  logging: true,
 });
+
+// const sequelize = new Sequelize("gt-railway", "root", "gt-railway-password", {
+//   host: "mysql://root:gt-railway-password@mysql.railway.internal:3306/gt-railway",
+//   dialect: "mysql", // Specify the dialect as 'mysql'
+//   port: 3306,
+//   // Optional: other dialectOptions for mysql2
+//   // dialectOptions: {
+//   //   connectTimeout: 1000,
+//   //   ...
+//   // },
+// });
 
 // const sequelize = new Sequelize(
 //   "mysql://root:gt-railway-password@crossover.proxy.rlwy.net:49182/gt-railway",
@@ -30,6 +30,8 @@ async function connectToDatabase() {
     console.error("Unable to connect to the database:", error);
   }
 }
+
+connectToDatabase();
 
 class Card extends Model {}
 Card.init(
