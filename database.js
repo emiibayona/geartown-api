@@ -1,5 +1,5 @@
 const { Sequelize, DataTypes, Model } = require("sequelize");
-
+const mysql2 = require("mysql2");
 let sequelize = null;
 
 // Test the connection
@@ -27,7 +27,7 @@ async function connectToDatabase() {
     if (process.env.SQL_TYPE === "vercel") {
       sequelize = new Sequelize(process.env.TIDB_URL, {
         dialect: "mysql",
-        dialectModule: require("mysql2"),
+        dialectModule: mysql2,
         dialectOptions: {
           ssl: {
             rejectUnauthorized: true,

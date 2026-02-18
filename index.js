@@ -17,7 +17,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 app.use("/api", routes);
-
+app.get("/test", (req, res) => res.send("API Working!"));
 if (process.env.NODE_ENV !== "production") {
   const { sequelize } = require("./database");
   sequelize.sync().then(() => {
