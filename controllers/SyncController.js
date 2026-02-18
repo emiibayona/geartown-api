@@ -1,4 +1,4 @@
-const { syncCards, syncSets } = require("../services/syncService");
+const { syncCards, syncSets } = require("../services/SyncService");
 
 const controller = {};
 
