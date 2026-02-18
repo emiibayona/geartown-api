@@ -3,3 +3,4 @@ default-cards.json
 .env
 node_modules/
 dist/
+migrations/
