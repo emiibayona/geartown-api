@@ -7,7 +7,12 @@ const chunkArray = (array, size) => {
 };
 const getBoundaries = (bond) => {
   if (!bond) {
-    return { limit: "20", offset: "0", page: "1" };
+    return { limit: 20, offset: 0, page: 1 };
   }
+  return {
+    limit: parseInt(bond?.limit || 20),
+    offset: parseInt(bond?.offset || 0),
+    page: parseInt(bond?.page || 1),
+  };
 };
 module.exports = { chunkArray, getBoundaries };

@@ -1,29 +1,46 @@
 const { Sequelize, DataTypes, Model } = require("sequelize");
 
-const sequelize = new Sequelize({
-  dialect: "sqlite",
-  storage: "./mtg_database.sqlite",
-  logging: true,
-});
-
-// const sequelize = new Sequelize("gt-railway", "root", "gt-railway-password", {
-//   host: "mysql://root:gt-railway-password@mysql.railway.internal:3306/gt-railway",
-//   dialect: "mysql", // Specify the dialect as 'mysql'
-//   port: 3306,
-//   // Optional: other dialectOptions for mysql2
-//   // dialectOptions: {
-//   //   connectTimeout: 1000,
-//   //   ...
-//   // },
-// });
-
-// const sequelize = new Sequelize(
-//   "mysql://root:gt-railway-password@crossover.proxy.rlwy.net:49182/gt-railway",
-// );
+let sequelize = null;
 
 // Test the connection
 async function connectToDatabase() {
   try {
+    // SQLITE
+    if (process.env.SQL_TYPE === "sqlite") {
+      sequelize = new Sequelize({
+        dialect: "sqlite",
+        storage: "./mtg_database.sqlite",
+        logging: true,
+      });
+    }
+
+    if (process.env.SQL_TYPE === "mysql") {
+      // MYSQL
+      sequelize = new Sequelize("geartownDb", "root", "", {
+        host: "localhost",
+        dialect: "mysql",
+        port: process.env.SQL_PORT || 3306,
+      });
+    }
+
+    // MYSQ TIDB
+    if (process.env.SQL_TYPE === "vercel") {
+      sequelize = new Sequelize(process.env.TIDB_URL, {
+        dialect: "mysql",
+        dialectModule: require("mysql2"),
+        dialectOptions: {
+          ssl: {
+            rejectUnauthorized: true,
+          },
+        },
+        pool: {
+          max: 5,
+          min: 0,
+          acquire: 30000,
+          idle: 10000,
+        },
+      });
+    }
     await sequelize.authenticate();
     console.log("Connection has been established successfully.");
   } catch (error) {
@@ -37,42 +54,46 @@ class Card extends Model {}
 Card.init(
   {
     // Core IDs
-    id: { type: DataTypes.UUIDV4, primaryKey: true },
-    oracle_id: { type: DataTypes.UUIDV4 },
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true,
+    },
+    oracle_id: { type: DataTypes.UUID },
     multiverse_ids: { type: DataTypes.JSON }, // SQLite handles arrays as JSON strings
     tcgplayer_id: { type: DataTypes.INTEGER },
     cardmarket_id: { type: DataTypes.INTEGER },
 
     // Identity & Gameplay
-    name: { type: DataTypes.STRING, allowNull: false },
-    lang: { type: DataTypes.STRING(10) },
+    name: { type: DataTypes.STRING(255), allowNull: false },
+    lang: { type: DataTypes.STRING(255) },
     released_at: { type: DataTypes.DATEONLY },
-    layout: { type: DataTypes.STRING },
+    layout: { type: DataTypes.STRING(255) },
     highres_image: { type: DataTypes.BOOLEAN },
-    image_status: { type: DataTypes.STRING },
+    image_status: { type: DataTypes.STRING(255) },
     cmc: { type: DataTypes.FLOAT },
-    type_line: { type: DataTypes.STRING },
+    type_line: { type: DataTypes.STRING(255) },
     oracle_text: { type: DataTypes.TEXT },
-    mana_cost: { type: DataTypes.STRING },
-    power: { type: DataTypes.STRING(10) },
-    toughness: { type: DataTypes.STRING(10) },
-    loyalty: { type: DataTypes.STRING(10) },
+    mana_cost: { type: DataTypes.STRING(255) },
+    power: { type: DataTypes.STRING(255) },
+    toughness: { type: DataTypes.STRING(255) },
+    loyalty: { type: DataTypes.STRING(255) },
     colors: { type: DataTypes.JSON }, // Array
     color_identity: { type: DataTypes.JSON }, // Array
     keywords: { type: DataTypes.JSON }, // Array
 
     // Print & Set Info
-    set_id: { type: DataTypes.UUIDV4 },
-    set: { type: DataTypes.STRING(10) },
-    set_name: { type: DataTypes.STRING },
-    set_type: { type: DataTypes.STRING },
-    collector_number: { type: DataTypes.STRING },
-    rarity: { type: DataTypes.STRING },
-    artist: { type: DataTypes.STRING },
+    set_id: { type: DataTypes.UUID },
+    set: { type: DataTypes.STRING(255) },
+    set_name: { type: DataTypes.STRING(255) },
+    set_type: { type: DataTypes.STRING(255) },
+    collector_number: { type: DataTypes.STRING(255) },
+    rarity: { type: DataTypes.STRING(255) },
+    artist: { type: DataTypes.STRING(255) },
     artist_ids: { type: DataTypes.JSON }, // Array
-    border_color: { type: DataTypes.STRING },
-    frame: { type: DataTypes.STRING },
-    security_stamp: { type: DataTypes.STRING },
+    border_color: { type: DataTypes.STRING(255) },
+    frame: { type: DataTypes.STRING(255) },
+    security_stamp: { type: DataTypes.STRING(255) },
 
     // Booleans / Flags
     reserved: { type: DataTypes.BOOLEAN },
@@ -117,16 +138,16 @@ Card.init(
 class CardFace extends Model {}
 CardFace.init(
   {
-    name: { type: DataTypes.STRING, allowNull: false },
-    mana_cost: { type: DataTypes.STRING },
-    type_line: { type: DataTypes.STRING },
+    name: { type: DataTypes.STRING(255), allowNull: false },
+    mana_cost: { type: DataTypes.STRING(255) },
+    type_line: { type: DataTypes.STRING(255) },
     oracle_text: { type: DataTypes.TEXT },
     colors: { type: DataTypes.JSON },
-    power: { type: DataTypes.STRING(10) },
-    toughness: { type: DataTypes.STRING(10) },
-    artist: { type: DataTypes.STRING },
-    artist_id: { type: DataTypes.UUIDV4 },
-    illustration_id: { type: DataTypes.UUIDV4 },
+    power: { type: DataTypes.STRING(255) },
+    toughness: { type: DataTypes.STRING(255) },
+    artist: { type: DataTypes.STRING(255) },
+    artist_id: { type: DataTypes.UUID },
+    illustration_id: { type: DataTypes.UUID },
     image_uris: { type: DataTypes.JSON },
   },
   {
@@ -147,13 +168,13 @@ class User extends Model {}
 User.init(
   {
     id: {
-      type: DataTypes.UUIDV4,
+      type: DataTypes.UUID,
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
     },
-    username: { type: DataTypes.STRING, unique: true, allowNull: false },
-    email: { type: DataTypes.STRING, unique: true, allowNull: false },
-    password_hash: { type: DataTypes.STRING, allowNull: false },
+    username: { type: DataTypes.STRING(255), unique: true, allowNull: false },
+    email: { type: DataTypes.STRING(255), unique: true, allowNull: false },
+    password_hash: { type: DataTypes.STRING(255), allowNull: false },
     type: {
       type: DataTypes.ENUM("seller", "buyer", "admin"),
       allowNull: false,
@@ -166,11 +187,11 @@ class Collection extends Model {}
 Collection.init(
   {
     id: {
-      type: DataTypes.UUIDV4,
+      type: DataTypes.UUID,
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
     },
-    name: { type: DataTypes.STRING, allowNull: false },
+    name: { type: DataTypes.STRING(255), allowNull: false },
     description: { type: DataTypes.TEXT },
     is_public: { type: DataTypes.BOOLEAN, defaultValue: false },
   },
@@ -185,13 +206,13 @@ CollectionUsers.init(
     // Setting userId to unique: true makes this a 1-to-Many logic
     // while keeping the Many-to-Many structure for the future.
     userId: {
-      type: DataTypes.UUIDV4,
+      type: DataTypes.UUID,
       unique: true, // A User can only appear ONCE in this table
     },
     collectionId: {
-      type: DataTypes.UUIDV4,
+      type: DataTypes.UUID,
     },
-    role: { type: DataTypes.STRING, defaultValue: "owner" }, // 'owner', 'editor', 'viewer'
+    role: { type: DataTypes.STRING(255), defaultValue: "owner" }, // 'owner', 'editor', 'viewer'
   },
   {
     sequelize,
@@ -204,34 +225,28 @@ CollectionUsers.init(
 class CollectionCards extends Model {}
 CollectionCards.init(
   {
-    collectionId: {
-      type: DataTypes.UUIDV4,
-      primaryKey: true,
-    },
-    cardId: {
-      type: DataTypes.UUIDV4,
-      primaryKey: true,
-    },
+    collectionId: { type: DataTypes.UUID, primaryKey: true },
+    cardId: { type: DataTypes.UUID, primaryKey: true },
     treatment: {
-      type: DataTypes.STRING,
+      type: DataTypes.STRING(255),
       defaultValue: "normal",
       primaryKey: true,
     },
-    lang: { type: DataTypes.STRING, primaryKey: true },
+    lang: { type: DataTypes.STRING(255), primaryKey: true },
     quantity: { type: DataTypes.INTEGER, defaultValue: 1, allowNull: false },
-    condition: { type: DataTypes.STRING, defaultValue: "Near Mint" },
-    acquired_price: { type: DataTypes.FLOAT }, // Helpful for tracking value over time
-    name: { type: DataTypes.STRING, allowNull: true },
-    collectionBinderId: { type: DataTypes.UUIDV4, allowNull: true },
+    condition: { type: DataTypes.STRING(255), defaultValue: "Near Mint" },
+    acquired_price: { type: DataTypes.FLOAT },
+    name: { type: DataTypes.STRING(255), allowNull: true },
+    collectionBinderId: { type: DataTypes.UUID, allowNull: true },
   },
   {
     sequelize,
     modelName: "collection_card",
     indexes: [
-      { fields: ["collectionId"] }, // Speed up fetching a specific user's deck
-      { fields: ["cardId"] }, // Speed up checking card global ownership
-      { fields: ["binderId"] }, // Speed up checking card by binder
-      { fields: ["binderId", "collectionId"] }, // Speed up checking card by binder
+      { fields: ["collectionId"] },
+      { fields: ["cardId"] },
+      { fields: ["collectionBinderId"] },
+      { fields: ["collectionBinderId", "collectionId"] },
     ],
   },
 );
@@ -239,29 +254,35 @@ CollectionCards.init(
 class CollectionBinders extends Model {}
 CollectionBinders.init(
   {
-    id: { type: DataTypes.UUIDV4, primaryKey: true },
-    collectionId: { type: DataTypes.UUIDV4, primaryKey: true },
-    name: { type: DataTypes.STRING, defaultValue: "" },
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true,
+    },
+    collectionId: { type: DataTypes.UUID, primaryKey: true },
+    name: { type: DataTypes.STRING(255), defaultValue: "" },
   },
   {
     sequelize,
     modelName: "collection_binder",
-    indexes: [
-      { fields: ["collectionId"] }, // Speed up fetching a specific user's deck
-    ],
+    indexes: [{ fields: ["collectionId"] }],
   },
 );
 
 class Set extends Model {}
 Set.init(
   {
-    id: { type: DataTypes.UUIDV4, primaryKey: true },
-    code: { type: DataTypes.STRING(10), unique: true },
-    name: { type: DataTypes.STRING, allowNull: false },
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true,
+    },
+    code: { type: DataTypes.STRING(255), unique: true },
+    name: { type: DataTypes.STRING(255), allowNull: false },
     released_at: { type: DataTypes.DATEONLY },
-    set_type: { type: DataTypes.STRING },
+    set_type: { type: DataTypes.STRING(255) },
     card_count: { type: DataTypes.INTEGER },
-    parent_set_code: { type: DataTypes.STRING(10) },
+    parent_set_code: { type: DataTypes.STRING(255) },
     digital: { type: DataTypes.BOOLEAN },
     nonfoil_only: { type: DataTypes.BOOLEAN },
     foil_only: { type: DataTypes.BOOLEAN },
@@ -278,14 +299,18 @@ Set.init(
 class Products extends Model {}
 Products.init(
   {
-    id: { type: DataTypes.UUIDV4, primaryKey: true },
-    name: { type: DataTypes.STRING, allowNull: false },
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true,
+    },
+    name: { type: DataTypes.STRING(255), allowNull: false },
     description: { type: DataTypes.TEXT, allowNull: false },
     price: { type: DataTypes.FLOAT, allowNull: false },
     stock: { type: DataTypes.INTEGER, defaultValue: 0 },
     sold: { type: DataTypes.BOOLEAN, defaultValue: false },
-    type: { type: DataTypes.STRING }, // "single", "bundle", "collection", etc.
-    image: { type: DataTypes.STRING },
+    type: { type: DataTypes.STRING(255) }, // "single", "bundle", "collection", etc.
+    image: { type: DataTypes.STRING(255) },
   },
   {
     sequelize,
@@ -305,11 +330,11 @@ Products.init(
 // class CollectionSeller extends Model {}
 // CollectionSeller.init({
 //   collectionId: {
-//     type: DataTypes.UUIDV4,
+//     type: DataTypes.UUID,
 //     primaryKey: true,
 //   },
 //   cardId: {
-//     type: DataTypes.UUIDV4,
+//     type: DataTypes.UUID,
 //     primaryKey: true,
 //   },
 // });

@@ -40,8 +40,6 @@ const findCollectionByUser = async (user) => {
 const getCardsByCollection = async (collectionId, params) => {
   try {
     if (!collectionId) return "Collection Id is required";
-    let { offset, limit } = params;
-    limit = parseInt(limit) || 20;
 
     const collectionWhere = { collectionId };
     const cardWhere = JSON.parse(params.cardWhere || "{}");
@@ -86,7 +84,7 @@ const getCardsByCollection = async (collectionId, params) => {
       };
       delete cardWhere.colors;
     }
-
+    // const boundaries =
     let includesOnCard = [{ model: CollectionBinders, required: false }];
     if (includeCards) {
       includesOnCard.push({
@@ -122,8 +120,7 @@ const getCardsByCollection = async (collectionId, params) => {
       }),
       () =>
         CollectionCards.findAndCountAll({
-          limit,
-          offset,
+          ...getBoundaries(params),
           where: collectionWhere,
           order: [
             ["name", "ASC"],

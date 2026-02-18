@@ -15,4 +15,8 @@ router.use("/sync", syncRoutes);
 router.use("/info", infoRoutes);
 router.use("/products", productsRoutes);
 
+router.get("/", (req, res) => {
+  res.json("HOLA");
+});
+
 module.exports = router;
