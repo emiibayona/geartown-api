@@ -14,6 +14,7 @@ const { prefixes, generateKey } = require("../utils/CacheUtils");
 const { chunkArray, getBoundaries } = require("../utils/Utils");
 const cacheService = require("./CacheService");
 const BinderService = require("./BinderService");
+const userService = require("./UserService");
 
 const findCollectionById = async (id) => {
   if (!id) {
@@ -24,14 +25,12 @@ const findCollectionById = async (id) => {
 
 const findCollectionByUser = async (user) => {
   try {
-    if (!user) return "User is required";
-    const userFound = await User.findOne({ where: { email: user } });
-
+    const userFound = await userService.findUserByEmail(user);
     if (!userFound) {
       return "User not found";
     }
 
-    return await ensureUserCollection(userFound.id);
+    return await ensureUserCollection({ user: userFound });
   } catch (error) {
     return error;
   }
@@ -115,7 +114,7 @@ const getCardsByCollection = async (collectionId, params) => {
 
     return await cacheService.getOrSet(
       generateKey(prefixes.CollectionService, "gcbc", {
-        collectionId,
+        collection: collectionId,
       }),
       { params },
       () =>
@@ -296,57 +295,84 @@ const addRowsToCollection = async (rows, collectionId, binder) => {
 
   cacheService.invalidate(
     generateKey(prefixes.CollectionService, "gcbc", {
-      collectionId,
+      collection: collectionId,
     }),
   );
   return summary;
 };
 
-async function ensureUserCollection(id, email) {
+const removeCardsFromCollection = async ({ cart }) => {
+  if (!cart) throw "Cartas son requeridas";
+
+  // Improve to generic
+  const collectionId = (
+    await findCollectionByUser(process.env.MTG_SELLER_EMAIL)
+  )?.collectionId;
+
+  if (!collectionId) throw "Collection es requerida";
+  const transaction = await sequelize.transaction();
+  const cardsProcessed = [];
   try {
-    // 1. Try to find the user's existing collection
+    for (const card of JSON.parse(cart)) {
+      const collCard = await CollectionCards.findOne({
+        where: { collectionId, cardId: card.cardId },
+      });
 
-    const user = await User.findOne({
-      where: {
-        [Op.or]: [{ email: email || "" }, { id: id || "" }],
-      },
-    });
+      // Funciona solo si la cantidad a remover es menor  o igual a lo que hay
+      // TODO: Improve manejo de remover mas de lo que hay.
 
+      if (collCard) {
+        await collCard.decrement({ quantity: card.quantity }, { transaction });
+      }
+      cardsProcessed.push({ ...card, added: !!collCard });
+    }
+
+    await transaction.commit();
+    if (cardsProcessed.length) {
+      cacheService.invalidate(
+        generateKey(prefixes.CollectionService, "gcbc", {
+          collection: collectionId,
+        }),
+      );
+    }
+    return cardsProcessed;
+  } catch (error) {
+    await transaction.rollback();
+    throw error;
+  }
+};
+
+async function ensureUserCollection({ user }) {
+  try {
     if (!user) {
       // TODO: lazy create acount for later versions
       return "Should ask to create your user to an admin for now";
-    }
-
-    let link = await CollectionUsers.findOne({
-      where: { userId: user.id },
-    });
-
-    if (link) {
-      link = await Collection.findOne({
-        where: {
-          id: link.collectionId,
-        },
-      });
-    }
-
-    if (!link) {
-      // 2. If it doesn't exist, create it
-      const newCollection = await Collection.create({
-        name: "My Main Collection",
-        description: "Default Binder",
+    } else {
+      let link = await CollectionUsers.findOne({
+        where: { userId: user.id },
       });
 
-      // 3. Link it
-      await CollectionUsers.create({
-        userId: user.id,
-        collectionId: newCollection.id,
-        role: "owner",
-      });
+      if (link) {
+        return link;
+      }
 
-      return newCollection;
+      if (!link) {
+        // 2. If it doesn't exist, create it
+        const newCollection = await Collection.create({
+          name: "My Main Collection",
+          description: "Default Binder",
+        });
+
+        // 3. Link it
+        await CollectionUsers.create({
+          userId: user.id,
+          collectionId: newCollection.id,
+          role: "owner",
+        });
+
+        return newCollection;
+      }
     }
-
-    return link;
   } catch (error) {
     return error;
   }
@@ -357,4 +383,5 @@ module.exports = {
   addRowsToCollection,
   findCollectionByUser,
   getCardsByCollection,
+  removeCardsFromCollection,
 };

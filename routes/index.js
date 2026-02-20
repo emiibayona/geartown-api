@@ -9,6 +9,9 @@ const infoRoutes = require("./InfoRoutes");
 const productsRoutes = require("./ProductsRoutes");
 const orderRoutes = require("./OrdersRoutes");
 
+// TODO:
+// Agregar middleware para manejar las llamadas de admin o usuario comun.
+
 router.use("/cards", cardRoutes);
 router.use("/collections", collectionRoutes);
 router.use("/users", userRoutes);

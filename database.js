@@ -240,6 +240,17 @@ CollectionCards.init(
     collectionBinderId: { type: DataTypes.UUID, allowNull: true },
   },
   {
+    hooks: {
+      afterUpdate: async (instance, options) => {
+        if (instance.qty <= 0) {
+          // Pending to test
+          // await instance.destroy({ transaction: options.transaction });
+          // console.log(
+          //   `Registro eliminado porque qty llegó a 0 (ID: ${instance.id})`,
+          // );
+        }
+      },
+    },
     sequelize,
     modelName: "collection_card",
     indexes: [
@@ -330,9 +341,20 @@ BuyOrders.init(
     contact: { type: DataTypes.STRING(255), allowNull: false },
     cart: { type: DataTypes.TEXT, allowNull: false },
     game: { type: DataTypes.STRING(255), allowNull: false },
-    completed: { type: DataTypes.BOOLEAN },
+    status: {
+      type: DataTypes.ENUM("pending", "incomplete", "complete"),
+      defaultValue: "pending",
+    },
   },
-  { sequelize, modelName: "buy_order" },
+  {
+    sequelize,
+    modelName: "buy_order",
+    indexes: [
+      { fields: ["game"] },
+      { fields: ["status"] },
+      { fields: ["game", "status"] },
+    ],
+  },
 );
 
 // // Link it to your Card model
