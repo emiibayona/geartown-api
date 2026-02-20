@@ -83,5 +83,5 @@ class CacheService {
   }
 }
 
-module.exports = new CacheService(3600);
+module.exports = new CacheService(50);
 // export const CacheService = new CacheService(50);

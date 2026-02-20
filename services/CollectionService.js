@@ -378,10 +378,15 @@ async function ensureUserCollection({ user }) {
   }
 }
 
+async function clearCollectionCache() {
+  cacheService.clearAll();
+}
+
 module.exports = {
   findCollectionById,
   addRowsToCollection,
   findCollectionByUser,
   getCardsByCollection,
   removeCardsFromCollection,
+  clearCollectionCache,
 };

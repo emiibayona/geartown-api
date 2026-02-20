@@ -25,4 +25,5 @@ const upload = multer(); // Use memory storage for small CSV files
 router.post("/init", upload.single("file"), controller.initCollection);
 router.get("/:collectionId", controller.cardsByCollection);
 router.get("/user/:user", controller.cardsByUser);
+router.post("/flush-cache", controller.flushCache);
 module.exports = router;
