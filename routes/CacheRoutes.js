@@ -3,5 +3,6 @@ const router = express.Router();
 const controller = require("../controllers/CacheController");
 
 router.post("/flush/all", controller.flushAll);
+router.get("/", controller.getCache);
 
 module.exports = router;

@@ -78,6 +78,9 @@ class CacheService {
   clearAll() {
     this.cache.clear();
   }
+  getCache() {
+    return this.cache;
+  }
 }
 
 module.exports = new CacheService(3600);
