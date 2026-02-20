@@ -319,6 +319,22 @@ Products.init(
   },
 );
 
+class BuyOrders extends Model {}
+BuyOrders.init(
+  {
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true,
+    },
+    contact: { type: DataTypes.STRING(255), allowNull: false },
+    cart: { type: DataTypes.TEXT, allowNull: false },
+    game: { type: DataTypes.STRING(255), allowNull: false },
+    completed: { type: DataTypes.BOOLEAN },
+  },
+  { sequelize, modelName: "buy_order" },
+);
+
 // // Link it to your Card model
 // Set.hasMany(Card, { as: "sets", foreignKey: "set_id" });
 // Card.belongsTo(Set, { foreignKey: "set_id" });
@@ -381,4 +397,5 @@ module.exports = {
   CollectionUsers,
   CollectionBinders,
   Products,
+  BuyOrders,
 };

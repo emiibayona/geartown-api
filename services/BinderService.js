@@ -1,5 +1,5 @@
 const { CollectionBinders } = require("../database");
-const cacheService = require("./cacheService")(86400);
+const cacheService = require("./CacheService");
 const { generateKey, prefixes } = require("../utils/CacheUtils");
 
 const service = {
@@ -8,6 +8,7 @@ const service = {
       if (!collection) throw "collection required";
       return await cacheService.getOrSet(
         generateKey(prefixes.BinderService, "gac", { collection }),
+        {},
         () =>
           CollectionBinders.findOne({ where: { collectionId: collection } }),
       );
@@ -18,7 +19,16 @@ const service = {
   createBinder: async (binder) => {
     try {
       if (!binder) throw "collection required";
-      return await CollectionBinders.create(binder);
+      const result = await CollectionBinders.create(binder);
+
+      if (result) {
+        cacheService.invalidate(
+          generateKey(prefixes.BinderService, "gac", {
+            collection: result.collectionId,
+          }),
+        );
+      }
+      return result;
     } catch (error) {
       return error;
     }

@@ -12,7 +12,7 @@ const {
 const { Op, col } = require("sequelize");
 const { prefixes, generateKey } = require("../utils/CacheUtils");
 const { chunkArray, getBoundaries } = require("../utils/Utils");
-const cacheService = require("./cacheService")(86400);
+const cacheService = require("./CacheService");
 const BinderService = require("./BinderService");
 
 const findCollectionById = async (id) => {
@@ -84,7 +84,7 @@ const getCardsByCollection = async (collectionId, params) => {
       };
       delete cardWhere.colors;
     }
-    // const boundaries =
+
     let includesOnCard = [{ model: CollectionBinders, required: false }];
     if (includeCards) {
       includesOnCard.push({
@@ -115,9 +115,9 @@ const getCardsByCollection = async (collectionId, params) => {
 
     return await cacheService.getOrSet(
       generateKey(prefixes.CollectionService, "gcbc", {
-        ...params,
         collectionId,
       }),
+      { params },
       () =>
         CollectionCards.findAndCountAll({
           ...getBoundaries(params),
@@ -293,12 +293,10 @@ const addRowsToCollection = async (rows, collectionId, binder) => {
 
     // Pending to fix
   }
-  cacheService.del(
+
+  cacheService.invalidate(
     generateKey(prefixes.CollectionService, "gcbc", {
-      cardWhere: {},
-      cards: true,
       collectionId,
-      ...getBoundaries(),
     }),
   );
   return summary;

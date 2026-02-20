@@ -1,6 +1,6 @@
 const { Products } = require("../database");
 const { prefixes, generateKey } = require("../utils/CacheUtils");
-const cacheService = require("./cacheService")(86400);
+const cacheService = require("./CacheService");
 const service = {};
 
 service.addProducts = async function (products) {};
@@ -12,8 +12,8 @@ service.getProducts = async function (type, query = {}) {
   return await cacheService.getOrSet(
     generateKey(prefixes.ProductsService, "gp", {
       type,
-      query,
     }),
+    { query },
     () => Products.findAndCountAll({ where: { type, ...query } }),
   );
 };

@@ -1,24 +1,61 @@
-// const NodeCache = require("node-cache");
-
-// // stdTTL: 3600 (1 hour). checkperiod: 600 (check for expired keys every 10 mins)
-// const cache = new NodeCache({ stdTTL: 3600, checkperiod: 600 });
-
-// module.exports = cache;
-
-const NodeCache = require("node-cache");
-
 class CacheService {
-  constructor(ttlSeconds) {
-    this.cache = new NodeCache({
-      stdTTL: ttlSeconds,
-      checkperiod: ttlSeconds * 0.2,
-      useClones: false, // Performance boost: saves memory by not cloning objects
-    });
+  constructor(maxKeys = 50) {
+    // Mapa principal: Key -> Map de parámetros
+    this.cache = new Map();
+    this.MAX_KEYS = maxKeys; // Límite de "cajones" principales
   }
 
-  // The "Magic" Wrapper
-  async getOrSet(key, fetchFunction) {
+  // Helper para mover una clave al final (hacerla "reciente")
+  _refreshOrder(key) {
     const value = this.cache.get(key);
+    this.cache.delete(key);
+    this.cache.set(key, value);
+  }
+
+  // TTL => 1 day => 60*24
+  set(key, params, value, ttlMinutes = 1440) {
+    if (!this.cache.has(key)) {
+      if (this.cache.size >= this.MAX_KEYS) {
+        const oldestKey = this.cache.keys().next().value;
+        this.cache.delete(oldestKey);
+        console.warn(
+          `Cache límite alcanzado. Eliminando entrada antigua: ${oldestKey}`,
+        );
+      }
+      this.cache.set(key, new Map());
+    } else {
+      this._refreshOrder(key);
+    }
+
+    const subMap = this.cache.get(key);
+    const paramKey = JSON.stringify(params);
+    const expiresAt = Date.now() + ttlMinutes * 60 * 1000;
+
+    subMap.set(paramKey, { value, expiresAt });
+  }
+
+  get(key, params) {
+    if (!this.cache.has(key)) return null;
+
+    this._refreshOrder(key);
+
+    const subMap = this.cache.get(key);
+    const paramKey = JSON.stringify(params);
+    const entry = subMap.get(paramKey);
+
+    if (!entry) return null;
+
+    if (Date.now() > entry.expiresAt) {
+      subMap.delete(paramKey);
+      return null;
+    }
+
+    return entry.value;
+  }
+
+  // TTL => 1 day => 60*24
+  async getOrSet(key, params, fetchFunction, ttl = 1440) {
+    const value = this.get(key, params);
     if (value) {
       console.log(`[Cache] Hit: ${key}`);
       return value;
@@ -29,20 +66,19 @@ class CacheService {
 
     // Only cache if there's actually data
     if (result) {
-      this.cache.set(key, result);
+      this.set(key, params, result, ttl);
     }
     return result;
   }
 
-  del(keys) {
-    this.cache.del(keys);
+  invalidate(key) {
+    this.cache.delete(key);
   }
 
-  flush() {
-    this.cache.flushAll();
-    console.log("[Cache] Database synced. Cache cleared.");
+  clearAll() {
+    this.cache.clear();
   }
 }
 
-// Export a singleton instance (1 hour default TTL)
-module.exports = (val = 3600) => new CacheService(3600);
+module.exports = new CacheService(3600);
+// export const CacheService = new CacheService(50);

@@ -1,5 +1,5 @@
 const { Card } = require("../database");
-const cacheService = require("./cacheService")(86400);
+const cacheService = require("./CacheService");
 const { generateKey, prefixes } = require("../utils/CacheUtils");
 
 class CardsService {
@@ -8,7 +8,8 @@ class CardsService {
     limit = parseInt(limit) || 20;
 
     return await cacheService.getOrSet(
-      generateKey(prefixes.CardService, "gac", { offset, limit }),
+      generateKey(prefixes.CardService, "gac"),
+      { offset, limit },
       () =>
         Card.findAndCountAll({
           limit,
@@ -21,6 +22,7 @@ class CardsService {
   async getCardById(id) {
     return await cacheService.getOrSet(
       generateKey(prefixes.CardService, "gcbi", { id }),
+      {},
       () => Card.findByPk(id),
     );
   }
