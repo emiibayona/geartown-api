@@ -8,6 +8,7 @@ const syncRoutes = require("./SyncRoutes");
 const infoRoutes = require("./InfoRoutes");
 const productsRoutes = require("./ProductsRoutes");
 const orderRoutes = require("./OrdersRoutes");
+const cacheRoutes = require("./CacheRoutes");
 
 // TODO:
 // Agregar middleware para manejar las llamadas de admin o usuario comun.
@@ -19,5 +20,8 @@ router.use("/sync", syncRoutes);
 router.use("/info", infoRoutes);
 router.use("/products", productsRoutes);
 router.use("/orders", orderRoutes);
+router.use("/cache", cacheRoutes);
+
+router.get("/", (req, res) => {});
 
 module.exports = router;

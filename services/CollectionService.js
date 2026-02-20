@@ -301,13 +301,13 @@ const addRowsToCollection = async (rows, collectionId, binder) => {
   return summary;
 };
 
-const removeCardsFromCollection = async ({ cart }) => {
+const removeCardsFromCollection = async ({ cart, collection = null }) => {
   if (!cart) throw "Cartas son requeridas";
 
   // Improve to generic
-  const collectionId = (
-    await findCollectionByUser(process.env.MTG_SELLER_EMAIL)
-  )?.collectionId;
+  const collectionId =
+    collection ||
+    (await findCollectionByUser(process.env.MTG_SELLER_EMAIL))?.collectionId;
 
   if (!collectionId) throw "Collection es requerida";
   const transaction = await sequelize.transaction();
