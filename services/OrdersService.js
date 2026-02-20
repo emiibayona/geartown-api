@@ -1,5 +1,5 @@
 const { prefixes, generateKey } = require("../utils/CacheUtils");
-const cacheService = require("./CacheService");
+const cacheService = require("./cacheService");
 const { BuyOrders } = require("../database");
 const { getBoundaries } = require("../utils/Utils");
 const { removeCardsFromCollection } = require("./CollectionService");

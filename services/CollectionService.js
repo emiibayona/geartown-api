@@ -12,7 +12,7 @@ const {
 const { Op, col } = require("sequelize");
 const { prefixes, generateKey } = require("../utils/CacheUtils");
 const { chunkArray, getBoundaries } = require("../utils/Utils");
-const cacheService = require("./CacheService");
+const cacheService = require("./cacheService");
 const BinderService = require("./BinderService");
 const userService = require("./UserService");
 

@@ -1,6 +1,6 @@
 const { User } = require("../database");
 const { generateKey, prefixes } = require("../utils/CacheUtils");
-const CacheService = require("./CacheService");
+const CacheService = require("./cacheService");
 const service = {};
 
 service.create = async function (body) {

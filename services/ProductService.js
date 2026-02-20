@@ -1,6 +1,6 @@
 const { Products } = require("../database");
 const { prefixes, generateKey } = require("../utils/CacheUtils");
-const cacheService = require("./CacheService");
+const cacheService = require("./cacheService");
 const service = {};
 
 service.addProducts = async function (products) {};

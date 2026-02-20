@@ -1,5 +1,5 @@
 const { Card } = require("../database");
-const cacheService = require("./CacheService");
+const cacheService = require("./cacheService");
 const { generateKey, prefixes } = require("../utils/CacheUtils");
 
 class CardsService {
