@@ -7,7 +7,8 @@ const controller = require("../controllers/OrdersController");
 // router.get("/sets/code/:code", controller.getSetsByCode);
 
 router.get("/:game/", controller.getOrders);
-router.get("/:game/:orderId", controller.getOrderById);
+router.get("/:game/order/:orderId", controller.getOrderById);
+router.get("/:game/resumen", controller.getOrdersResumen);
 router.post("/:game", controller.createOrder);
 router.patch("/:game/:orderId", controller.updateOrder);
 module.exports = router;

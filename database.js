@@ -339,6 +339,8 @@ BuyOrders.init(
       primaryKey: true,
     },
     contact: { type: DataTypes.STRING(255), allowNull: false },
+    name: { type: DataTypes.STRING(255), allowNull: false },
+    comments: { type: DataTypes.STRING(255), allowNull: true },
     cart: { type: DataTypes.TEXT, allowNull: false },
     game: { type: DataTypes.STRING(255), allowNull: false },
     status: {

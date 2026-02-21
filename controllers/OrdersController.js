@@ -15,6 +15,16 @@ controller.getOrders = async (req, res) => {
     res.status(500).json(error);
   }
 };
+controller.getOrdersResumen = async (req, res) => {
+  try {
+    const result = await service.getOrdersResume({
+      game: getGame(req),
+    });
+    return res.json(result);
+  } catch (error) {
+    res.status(500).json(error);
+  }
+};
 controller.getOrderById = async (req, res) => {
   try {
     const result = await service.getOrders({
