@@ -244,10 +244,10 @@ CollectionCards.init(
       afterUpdate: async (instance, options) => {
         if (instance.qty <= 0) {
           // Pending to test
-          // await instance.destroy({ transaction: options.transaction });
-          // console.log(
-          //   `Registro eliminado porque qty llegó a 0 (ID: ${instance.id})`,
-          // );
+          await instance.destroy({ transaction: options.transaction });
+          console.log(
+            `Registro eliminado porque qty llegó a 0 (ID: ${instance.id})`,
+          );
         }
       },
     },

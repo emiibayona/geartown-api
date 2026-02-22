@@ -9,7 +9,7 @@ app.use(express.json());
 // 2. Configure CORS
 const corsOptions = {
   origin: process.env.CORS_ALLOW, // Allow only your frontend
-  methods: ["GET", "POST", "PUT", "DELETE"],
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true, // Enable this if you eventually use cookies/sessions
 };

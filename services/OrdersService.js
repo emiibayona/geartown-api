@@ -27,7 +27,7 @@ class OrdersService {
           () =>
             BuyOrders.findAll({
               where,
-              order: [["createdAt", "ASC"]],
+              order: [["createdAt", "DESC"]],
             }),
         );
       }
@@ -94,8 +94,7 @@ class OrdersService {
         await BuyOrders.update(
           {
             cart: JSON.stringify(result),
-            status:
-              order.cart.length === result.length ? "complete" : "incomplete",
+            status: result.every((x) => x.added) ? "complete" : "incomplete",
           },
           { where: { id: order.id } },
         );
@@ -103,8 +102,12 @@ class OrdersService {
           generateKey(prefixes.OrdersService, "gobi", { game }),
           { order: order.id },
         );
+        cacheService.invalidate(
+          generateKey(prefixes.OrdersService, "gores", { game }),
+          {},
+        );
       }
-      return;
+      return result;
     } catch (error) {
       throw error;
     }

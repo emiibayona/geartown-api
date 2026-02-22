@@ -40,7 +40,7 @@ const getCardsByCollection = async (collectionId, params) => {
   try {
     if (!collectionId) return "Collection Id is required";
 
-    const collectionWhere = { collectionId };
+    const collectionWhere = { collectionId, quantity: { [Op.gt]: 0 } };
     const cardWhere = JSON.parse(params.cardWhere || "{}");
     const includeCards = params?.cards === "true" ? true : false;
 
@@ -313,7 +313,7 @@ const removeCardsFromCollection = async ({ cart, collection = null }) => {
   const transaction = await sequelize.transaction();
   const cardsProcessed = [];
   try {
-    for (const card of JSON.parse(cart)) {
+    for (const card of cart) {
       const collCard = await CollectionCards.findOne({
         where: { collectionId, cardId: card.cardId },
       });
@@ -322,7 +322,10 @@ const removeCardsFromCollection = async ({ cart, collection = null }) => {
       // TODO: Improve manejo de remover mas de lo que hay.
 
       if (collCard) {
-        await collCard.decrement({ quantity: card.quantity }, { transaction });
+        await collCard.decrement(
+          { quantity: card.sold || card.quantity },
+          { transaction },
+        );
       }
       cardsProcessed.push({ ...card, added: !!collCard });
     }
