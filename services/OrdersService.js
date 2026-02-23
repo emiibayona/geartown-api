@@ -3,6 +3,7 @@ const cacheService = require("./cacheService");
 const { BuyOrders, sequelize } = require("../database");
 const { getBoundaries } = require("../utils/Utils");
 const { removeCardsFromCollection } = require("./CollectionService");
+const { Op, col } = require("sequelize");
 class OrdersService {
   async getOrders({ game, order, query }) {
     try {
@@ -17,6 +18,11 @@ class OrdersService {
         const where = {
           game: game,
           status: query?.status || "",
+          [Op.or]: [
+            { id: query?.search },
+            { name: { [Op.like]: `%${query?.search}%` } },
+            { contact: { [Op.like]: `%${query?.search}%` } },
+          ],
         };
         if (!query?.status) {
           delete where.status;
