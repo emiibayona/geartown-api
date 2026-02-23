@@ -315,19 +315,28 @@ const removeCardsFromCollection = async ({ cart, collection = null }) => {
   try {
     for (const card of cart) {
       const collCard = await CollectionCards.findOne({
-        where: { collectionId, cardId: card.cardId },
+        where: { collectionId, cardId: card.cardId, quantity: [] },
       });
 
       // Funciona solo si la cantidad a remover es menor  o igual a lo que hay
       // TODO: Improve manejo de remover mas de lo que hay.
+      let added = false;
+      let error = "";
+      const couldSell =
+        collCard && card.sold > 0 && collCard.quantity >= card.sold;
 
-      if (collCard) {
-        await collCard.decrement(
-          { quantity: card.sold || card.quantity },
-          { transaction },
-        );
+      if (couldSell) {
+        await collCard.decrement({ quantity: card.sold }, { transaction });
+        added = true;
+      } else {
+        error = "Cantidad solicitada mayor a disponible";
       }
-      cardsProcessed.push({ ...card, added: !!collCard });
+
+      cardsProcessed.push({
+        ...card,
+        added,
+        error,
+      });
     }
 
     await transaction.commit();

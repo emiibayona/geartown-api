@@ -88,13 +88,19 @@ class OrdersService {
       if (!order?.name) throw "Nombre requerido";
       if (!order?.contact) throw "Contacto requerido";
 
-      const result = await removeCardsFromCollection(order);
+      const result = order.forceClose
+        ? order.cart
+        : await removeCardsFromCollection(order);
 
-      if (result?.length) {
+      if (result?.length || order.forceClose) {
         await BuyOrders.update(
           {
             cart: JSON.stringify(result),
-            status: result.every((x) => x.added) ? "complete" : "incomplete",
+            status: order.forceClose
+              ? "complete"
+              : result.every((x) => x.added)
+                ? "complete"
+                : "incomplete",
           },
           { where: { id: order.id } },
         );
@@ -103,8 +109,10 @@ class OrdersService {
           { order: order.id },
         );
         cacheService.invalidate(
+          generateKey(prefixes.OrdersService, "gos", { game }),
+        );
+        cacheService.invalidate(
           generateKey(prefixes.OrdersService, "gores", { game }),
-          {},
         );
       }
       return result;
