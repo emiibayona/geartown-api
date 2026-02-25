@@ -5,5 +5,6 @@ const controller = require("../controllers/CardController");
 router.get("/", controller.getAll);
 
 router.get("/:id", controller.getById);
+router.post("/images/faces", controller.doubleFace);
 
 module.exports = router;

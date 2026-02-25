@@ -28,4 +28,13 @@ controller.getById = async function (req, res) {
   }
 };
 
+controller.doubleFace = async function (req, res) {
+  try {
+    const card = await service.doubleFace(req.body);
+    card ? res.json(card) : res.status(404).json({ error: "Card not found" });
+  } catch (error) {
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
 module.exports = controller;

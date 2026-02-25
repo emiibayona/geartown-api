@@ -229,28 +229,28 @@ CollectionCards.init(
       type: DataTypes.INTEGER,
       primaryKey: true,
       autoIncrement: true,
-      // unique: "unique_card_entry",
+      // unique: "uce",
     },
     collectionId: {
       type: DataTypes.UUID,
       // primaryKey: true,
-      unique: "unique_card_entry",
+      unique: "uce",
     },
     cardId: {
       type: DataTypes.UUID,
       // primaryKey: true,
-      unique: "unique_card_entry",
+      unique: "uce",
     },
     treatment: {
       type: DataTypes.STRING(255),
       defaultValue: "",
       // primaryKey: true,
-      unique: "unique_card_entry",
+      unique: "uce",
     },
     lang: {
       type: DataTypes.STRING(255),
       // primaryKey: true,
-      unique: "unique_card_entry",
+      unique: "uce",
     },
     quantity: { type: DataTypes.INTEGER, defaultValue: 1, allowNull: false },
     condition: { type: DataTypes.STRING(255), defaultValue: "Near Mint" },
@@ -260,7 +260,7 @@ CollectionCards.init(
       type: DataTypes.UUID,
       defaultValue: UUIDV4,
       allowNull: true,
-      unique: "unique_card_entry",
+      unique: "uce",
     },
   },
   {
@@ -270,16 +270,9 @@ CollectionCards.init(
       { fields: ["collectionId"] },
       { fields: ["cardId"] },
       {
-        fields: [
-          "collectionId",
-          "cardId",
-          "treatment",
-          "lang",
-          "condition",
-          "binderId",
-        ],
+        fields: ["collectionId", "cardId", "treatment", "lang", "binderId"],
         unique: true,
-        name: "unique_card_entry",
+        name: "uce",
       },
     ],
   },
@@ -393,7 +386,7 @@ BuyOrders.init(
     name: { type: DataTypes.STRING(255), allowNull: false },
     comments: { type: DataTypes.STRING(255), allowNull: true },
     cart: { type: DataTypes.TEXT, allowNull: false },
-    game: { type: DataTypes.STRING(255), allowNull: false },
+    game: { type: DataTypes.STRING(50), allowNull: false },
     status: {
       type: DataTypes.ENUM("pending", "incomplete", "complete"),
       defaultValue: "pending",
@@ -405,7 +398,7 @@ BuyOrders.init(
     indexes: [
       { fields: ["game"] },
       { fields: ["status"] },
-      { fields: ["game", "status"] },
+      { fields: ["game", "status"], name: "bogs" },
     ],
   },
 );
@@ -446,6 +439,7 @@ CollectionCards.belongsTo(Card);
 // });
 
 module.exports = {
+  connectToDatabase,
   sequelize,
   Set,
   Card,

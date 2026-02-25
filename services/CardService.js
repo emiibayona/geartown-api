@@ -1,4 +1,4 @@
-const { Card } = require("../database");
+const { Card, CardFace } = require("../database");
 const cacheService = require("./cacheService");
 const { generateKey, prefixes } = require("../utils/CacheUtils");
 
@@ -24,6 +24,14 @@ class CardsService {
       generateKey(prefixes.CardService, "gcbi", { id }),
       {},
       () => Card.findByPk(id),
+    );
+  }
+
+  async doubleFace(ids) {
+    return await cacheService.getOrSet(
+      generateKey(prefixes.CardService, "gdfbi"),
+      { ids },
+      () => CardFace.findAll({ where: { cardid: ids } }),
     );
   }
 }

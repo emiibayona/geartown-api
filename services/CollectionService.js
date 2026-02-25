@@ -68,19 +68,34 @@ const getCardsByCollection = async (collectionId, params) => {
     }
 
     if (cardWhere.colors) {
-      cardWhere.color_identity = {
-        [Op.and]: [
-          sequelize.literal(
-            `json_array_length(card.color_identity) = ${cardWhere.colors.length}`,
-          ),
-        ].concat(
-          cardWhere.colors.map((x) =>
+      // cardWhere.color_identity = {
+      //   [Op.and]: [
+      //     sequelize.literal(
+      //       `json_array_length(card.color_identity) = ${cardWhere.colors.length}`,
+      //     ),
+      //   ].concat(
+      //     cardWhere.colors.map((x) =>
+      //       sequelize.literal(
+      //         `EXISTS (SELECT 1 FROM json_each(card.color_identity) WHERE value = '${x}')`,
+      //       ),
+      //     ),
+      //   ),
+      // };
+      if (cardWhere.colors) {
+        cardWhere.color_identity = {
+          [Op.and]: [
             sequelize.literal(
-              `EXISTS (SELECT 1 FROM json_each(card.color_identity) WHERE value = '${x}')`,
+              `JSON_LENGTH(card.color_identity) = ${cardWhere.colors.length}`,
             ),
-          ),
-        ),
-      };
+            ...cardWhere.colors.map((color) =>
+              sequelize.literal(
+                `JSON_CONTAINS(card.color_identity, '"${color}"')`,
+              ),
+            ),
+          ],
+        };
+        delete cardWhere.colors;
+      }
       delete cardWhere.colors;
     }
 
@@ -101,42 +116,106 @@ const getCardsByCollection = async (collectionId, params) => {
           "set",
         ],
         order: [["name", "DESC"]],
-        include: [
-          {
-            model: CardFace,
-            required: false,
-            as: "card_faces",
-            attributes: ["cardId", "image_uris"],
-            separate: true,
-          },
-        ],
+        // include: [
+        //   {
+        //     model: CardFace,
+        //     as: "card_faces",
+        //     attributes: ["cardId", "image_uris"],
+        //     required: false,
+        //     // separate: true,
+        //   },
+        // ],
       });
     }
 
     const resolveAll = async () => {
+      // const boundaries = getBoundaries(params);
+      // const options = {
+      //   where: collectionWhere,
+      //   order: [
+      //     ["name", "ASC"],
+      //     ["acquired_price", "DESC"],
+      //   ],
+      //   attributes: [
+      //     ...Object.keys(CollectionCards.getAttributes()),
+      //     [sequelize.fn("sum", sequelize.col("quantity")), "quantity"],
+      //   ],
+      //   group: ["cardId"],
+      //   include: includesOnCard,
+      // };
+      // const [count, data] = await Promise.all([
+      //   CollectionCards.count({ ...options, attributes: [], include: [] }),
+      //   CollectionCards.findAndCountAll({ ...options, ...boundaries }),
+      // ]);
+      // return {
+      //   collectionId,
+      //   total: count.length,
+      //   pages: Math.ceil(count.length / boundaries.limit),
+      //   data: data.rows,
+      // };
+
       const boundaries = getBoundaries(params);
+
+      // 1. Obtenemos todos los nombres de columnas del modelo
+      const modelAttributes = Object.keys(CollectionCards.getAttributes()).map(
+        (attr) => {
+          if (attr === "quantity") {
+            return [sequelize.fn("SUM", sequelize.col("quantity")), "quantity"];
+          }
+          // IMPORTANTE: Incluimos el ID dentro de un ANY_VALUE para que no explote
+          // if (attr === "id") {
+          //   return [
+          //     sequelize.fn("ANY_VALUE", sequelize.col("collection_card.id")),
+          //     "id",
+          //   ];
+          // }
+          if (attr === "cardId") return "cardId";
+
+          return [
+            sequelize.fn("ANY_VALUE", sequelize.col(`collection_card.${attr}`)),
+            attr,
+          ];
+        },
+      );
+
+      // 2. Transformamos los atributos para que sean compatibles con GROUP BY en MySQL
+      const safeAttributes = modelAttributes;
+
       const options = {
         where: collectionWhere,
         order: [
           ["name", "ASC"],
           ["acquired_price", "DESC"],
         ],
-        attributes: [
-          ...Object.keys(CollectionCards.getAttributes()),
-          [sequelize.fn("sum", sequelize.col("quantity")), "quantity"],
-        ],
-        group: ["cardId"],
+        attributes: modelAttributes,
+        group: ["cardId"], // Agrupación principal
         include: includesOnCard,
+        // ESTAS TRES LÍNEAS SON VITALES
+        subQuery: false,
+        raw: true,
+        nest: true,
       };
+
       const [count, data] = await Promise.all([
-        CollectionCards.count({ ...options, attributes: [], include: [] }),
-        CollectionCards.findAndCountAll({ ...options, ...boundaries }),
+        CollectionCards.count({
+          where: collectionWhere,
+          group: ["cardId"],
+          include: includesOnCard.map((i) => ({
+            ...i,
+            attributes: [],
+            include: [],
+          })),
+        }),
+        CollectionCards.findAll({ ...options, ...boundaries }),
       ]);
+
+      const totalGroups = count.length || 0; // El número de grupos (cartas únicas)
+
       return {
         collectionId,
-        total: count.length,
-        pages: Math.ceil(count.length / boundaries.limit),
-        data: data.rows,
+        total: totalGroups,
+        pages: Math.ceil(totalGroups / boundaries.limit),
+        data: data,
       };
     };
 
@@ -309,7 +388,7 @@ const addRowsToCollection = async (rows, collectionId, binder = "default") => {
           query = `
             INSERT INTO \`collection_cards\` (
               \`collectionId\`, \`cardId\`, \`treatment\`, \`lang\`, 
-              \`quantity\`, \`condition\`, \`acquired_price\`, \`name\`, \`createdAt\`, \`updatedAt\`
+              \`quantity\`, \`condition\`, \`acquired_price\`, \`name\`, \`createdAt\`, \`updatedAt\`, \`binderId\`
               ) 
               VALUES ${values}
               ON DUPLICATE KEY UPDATE 
@@ -327,7 +406,6 @@ const addRowsToCollection = async (rows, collectionId, binder = "default") => {
         await transaction.commit();
 
         if (binder) {
-          // TODO: Pending to mysql
           let insertedCards = await sequelize.query(
             `SELECT id FROM collection_cards
               WHERE createdAt = ${sequelize.escape(createdDate)} OR updatedAt = ${sequelize.escape(createdDate)}`,
