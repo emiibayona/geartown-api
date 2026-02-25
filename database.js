@@ -1,4 +1,4 @@
-const { Sequelize, DataTypes, Model } = require("sequelize");
+const { Sequelize, DataTypes, Model, DATE, UUIDV4 } = require("sequelize");
 const mysql2 = require("mysql2");
 let sequelize = null;
 
@@ -225,45 +225,68 @@ CollectionUsers.init(
 class CollectionCards extends Model {}
 CollectionCards.init(
   {
-    collectionId: { type: DataTypes.UUID, primaryKey: true },
-    cardId: { type: DataTypes.UUID, primaryKey: true },
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true,
+      // unique: "unique_card_entry",
+    },
+    collectionId: {
+      type: DataTypes.UUID,
+      // primaryKey: true,
+      unique: "unique_card_entry",
+    },
+    cardId: {
+      type: DataTypes.UUID,
+      // primaryKey: true,
+      unique: "unique_card_entry",
+    },
     treatment: {
       type: DataTypes.STRING(255),
-      defaultValue: "normal",
-      primaryKey: true,
+      defaultValue: "",
+      // primaryKey: true,
+      unique: "unique_card_entry",
     },
-    lang: { type: DataTypes.STRING(255), primaryKey: true },
+    lang: {
+      type: DataTypes.STRING(255),
+      // primaryKey: true,
+      unique: "unique_card_entry",
+    },
     quantity: { type: DataTypes.INTEGER, defaultValue: 1, allowNull: false },
     condition: { type: DataTypes.STRING(255), defaultValue: "Near Mint" },
     acquired_price: { type: DataTypes.FLOAT },
     name: { type: DataTypes.STRING(255), allowNull: true },
-    collectionBinderId: { type: DataTypes.UUID, allowNull: true },
+    binderId: {
+      type: DataTypes.UUID,
+      defaultValue: UUIDV4,
+      allowNull: true,
+      unique: "unique_card_entry",
+    },
   },
   {
-    hooks: {
-      afterUpdate: async (instance, options) => {
-        if (instance.qty <= 0) {
-          // Pending to test
-          await instance.destroy({ transaction: options.transaction });
-          console.log(
-            `Registro eliminado porque qty llegó a 0 (ID: ${instance.id})`,
-          );
-        }
-      },
-    },
     sequelize,
     modelName: "collection_card",
     indexes: [
       { fields: ["collectionId"] },
       { fields: ["cardId"] },
-      { fields: ["collectionBinderId"] },
-      { fields: ["collectionBinderId", "collectionId"] },
+      {
+        fields: [
+          "collectionId",
+          "cardId",
+          "treatment",
+          "lang",
+          "condition",
+          "binderId",
+        ],
+        unique: true,
+        name: "unique_card_entry",
+      },
     ],
   },
 );
 
-class CollectionBinders extends Model {}
-CollectionBinders.init(
+class Binders extends Model {}
+Binders.init(
   {
     id: {
       type: DataTypes.UUID,
@@ -275,11 +298,39 @@ CollectionBinders.init(
   },
   {
     sequelize,
-    modelName: "collection_binder",
+    modelName: "binder",
     indexes: [{ fields: ["collectionId"] }],
   },
 );
-
+class BindersCards extends Model {}
+BindersCards.init(
+  {
+    binderId: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      allowNull: false,
+      primaryKey: true,
+      unique: "unique_binder_card_entry",
+    },
+    collectionCardId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      primaryKey: true,
+      unique: "unique_binder_card_entry",
+    },
+  },
+  {
+    sequelize,
+    modelName: "binder_cards",
+    indexes: [
+      {
+        unique: true,
+        name: "unique_binder_card_entry",
+        fields: ["binderId", "collectionCardId"],
+      },
+    ],
+  },
+);
 class Set extends Model {}
 Set.init(
   {
@@ -359,26 +410,6 @@ BuyOrders.init(
   },
 );
 
-// // Link it to your Card model
-// Set.hasMany(Card, { as: "sets", foreignKey: "set_id" });
-// Card.belongsTo(Set, { foreignKey: "set_id" });
-
-// // Join
-// Card.hasMany(CardFace, { as: "card_faces", foreignKey: "cardId" });
-// CardFace.belongsTo(Card, { foreignKey: "cardId" });
-
-// class CollectionSeller extends Model {}
-// CollectionSeller.init({
-//   collectionId: {
-//     type: DataTypes.UUID,
-//     primaryKey: true,
-//   },
-//   cardId: {
-//     type: DataTypes.UUID,
-//     primaryKey: true,
-//   },
-// });
-
 // A User can have many Collections, and a Collection can belong to many Users
 User.belongsToMany(Collection, { through: CollectionUsers });
 Collection.belongsToMany(User, { through: CollectionUsers });
@@ -407,8 +438,12 @@ CollectionCards.belongsTo(Collection);
 Card.hasMany(CollectionCards);
 CollectionCards.belongsTo(Card);
 
-CollectionCards.belongsTo(CollectionBinders);
-CollectionBinders.hasMany(CollectionCards);
+// CollectionCards.belongsToMany(Binders, {
+//   through: BindersCards,
+// });
+// Binders.belongsToMany(CollectionCards, {
+//   through: BindersCards,
+// });
 
 module.exports = {
   sequelize,
@@ -419,7 +454,8 @@ module.exports = {
   Collection,
   CollectionCards,
   CollectionUsers,
-  CollectionBinders,
+  Binders,
+  BindersCards,
   Products,
   BuyOrders,
 };

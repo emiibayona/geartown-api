@@ -3,14 +3,19 @@ const {
   findCollectionByUser,
   getCardsByCollection,
   clearCollectionCache,
+  removeCardsFromCollection,
+  getBinders,
+  createBinder,
 } = require("../services/CollectionService");
 const { parseCSV } = require("../utils/CsvParser");
+const { getGame } = require("../utils/Utils");
 const controller = {};
 
 controller.initCollection = async function (req, res) {
   try {
     if (!req.file) return res.status(400).send("No file uploaded.");
     const collection = await findCollectionByUser(req.body.user);
+
     // 1. Convert buffer to stream
     const bufferStream = new require("stream").PassThrough();
     bufferStream.end(req.file.buffer);
@@ -23,6 +28,7 @@ controller.initCollection = async function (req, res) {
     const result = await addRowsToCollection(
       rows,
       req.params.collectionId || collection.collectionId,
+      req.body.binder,
     );
 
     return res.status(200).json({
@@ -37,13 +43,7 @@ controller.initCollection = async function (req, res) {
 
 const getCardsCollection = async (params, query) => {
   try {
-    const result = await getCardsByCollection(params.collectionId, query);
-
-    return {
-      total: result.count,
-      pages: Math.ceil(result.count / (query.limit || 20)),
-      data: result.rows,
-    };
+    return await getCardsByCollection(params.collectionId, query);
   } catch (error) {
     res.status(500).json({ error: "Failed on retrieve collection cards" });
   }
@@ -72,12 +72,43 @@ controller.cardsByUser = async function (req, res) {
   }
 };
 
+controller.updateCardsSingles = async function (req, res) {
+  try {
+    const result = await removeCardsFromCollection({
+      game: getGame(req),
+      collection: req.params.collectionId,
+      cart: req.body,
+    });
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({ error: "Failed upon updating cards" });
+  }
+};
+controller.updateCards = async function (req, res) {};
+
 controller.flushCache = async (req, res) => {
   try {
     await clearCollectionCache();
     return res.status(200).json("clean");
   } catch (error) {
     return res.status(500);
+  }
+};
+
+controller.getBinders = async function (req, res) {
+  try {
+    const result = await getBinders(req.params.collectionId);
+    res.status(200).json(result);
+  } catch (error) {
+    return res.status(500).json(error);
+  }
+};
+controller.createBinder = async function (req, res) {
+  try {
+    const result = await createBinder(req.params, req.body);
+    res.status(200).json(result);
+  } catch (error) {
+    return res.status(500).json(error);
   }
 };
 module.exports = controller;

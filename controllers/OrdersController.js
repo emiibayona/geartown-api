@@ -1,8 +1,7 @@
 const service = require("../services/OrdersService");
+const { getGame } = require("../utils/Utils");
 
 const controller = {};
-
-const getGame = (req) => req.params.game;
 
 controller.getOrders = async (req, res) => {
   try {

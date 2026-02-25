@@ -5,11 +5,11 @@ const {
   CollectionCards,
   Collection,
   CollectionUsers,
-  User,
   CardFace,
-  CollectionBinders,
+  BindersCards,
+  Binders,
 } = require("../database");
-const { Op, col } = require("sequelize");
+const { Op, col, QueryTypes } = require("sequelize");
 const { prefixes, generateKey } = require("../utils/CacheUtils");
 const { chunkArray, getBoundaries } = require("../utils/Utils");
 const cacheService = require("./cacheService");
@@ -84,7 +84,8 @@ const getCardsByCollection = async (collectionId, params) => {
       delete cardWhere.colors;
     }
 
-    let includesOnCard = [{ model: CollectionBinders, required: false }];
+    // let includesOnCard = [{ model: BindersCards, required: false }];
+    let includesOnCard = [];
     if (includeCards) {
       includesOnCard.push({
         model: Card,
@@ -112,28 +113,57 @@ const getCardsByCollection = async (collectionId, params) => {
       });
     }
 
+    const resolveAll = async () => {
+      const boundaries = getBoundaries(params);
+      const options = {
+        where: collectionWhere,
+        order: [
+          ["name", "ASC"],
+          ["acquired_price", "DESC"],
+        ],
+        attributes: [
+          ...Object.keys(CollectionCards.getAttributes()),
+          [sequelize.fn("sum", sequelize.col("quantity")), "quantity"],
+        ],
+        group: ["cardId"],
+        include: includesOnCard,
+      };
+      const [count, data] = await Promise.all([
+        CollectionCards.count({ ...options, attributes: [], include: [] }),
+        CollectionCards.findAndCountAll({ ...options, ...boundaries }),
+      ]);
+      return {
+        collectionId,
+        total: count.length,
+        pages: Math.ceil(count.length / boundaries.limit),
+        data: data.rows,
+      };
+    };
+
     return await cacheService.getOrSet(
       generateKey(prefixes.CollectionService, "gcbc", {
         collection: collectionId,
       }),
       { params },
-      () =>
-        CollectionCards.findAndCountAll({
-          ...getBoundaries(params),
-          where: collectionWhere,
-          order: [
-            ["name", "ASC"],
-            ["acquired_price", "DESC"],
-          ],
-          include: includesOnCard,
-        }),
+      () => resolveAll(),
     );
   } catch (error) {
     return error;
   }
 };
 
-const addRowsToCollection = async (rows, collectionId, binder) => {
+const parseCardToInsert = (card, cur, collectionId, treatment) => ({
+  collectionId,
+  cardId: card.id,
+  treatment,
+  lang: Languages[cur.Language],
+  quantity: parseInt(cur.Count) || 1,
+  condition: cur.Condition || "Near Mint",
+  acquired_price: parseFloat(cur["Purchase Price"]) || 0,
+  name: card.name,
+});
+
+const addRowsToCollection = async (rows, collectionId, binder = "default") => {
   if (!rows?.length) {
     return "The collection to add is empty";
   }
@@ -171,10 +201,15 @@ const addRowsToCollection = async (rows, collectionId, binder) => {
 
   const chunks = chunkArray(rows, BATCH_SIZE);
 
-  const allCardsInCollection = await CollectionCards.findAll({
-    where: { collectionId },
-    attributes: { exclude: ["createdAt", "updatedAt"] },
-  });
+  if (binder) {
+    const binderFound = await BinderService.getByName(binder, collectionId);
+
+    binder = (
+      binderFound
+        ? binderFound
+        : await BinderService.createBinder({ collectionId, name: binder })
+    )?.id;
+  }
 
   for (const chunk of chunks) {
     const rowsFoils = chunk.filter((x) =>
@@ -215,12 +250,6 @@ const addRowsToCollection = async (rows, collectionId, binder) => {
 
     // End Cards in DB
 
-    // Binder
-    // Binder
-    // if (binder) {
-    //   binder = BinderService.getByCollection();
-    // }
-
     const redudu = (ar, arCheck, treatment) =>
       ar.reduce((prev, cur) => {
         const cards = arCheck.filter(
@@ -233,22 +262,10 @@ const addRowsToCollection = async (rows, collectionId, binder) => {
             ? cards[0]
             : cards.find((x) => Languages[cur.Language] === x.lang);
         try {
-          const alreadyOnCol = allCardsInCollection.find(
-            (x) => x.cardId === card.id && x.treatment === treatment,
-          );
           if (!card) {
             summary.notAdded.push(cur);
-          } else if (!alreadyOnCol) {
-            prev.push({
-              collectionId: collectionId,
-              cardId: card.id,
-              treatment: treatment,
-              quantity: parseInt(cur.Count) || 1,
-              condition: cur.Condition || "Near Mint",
-              acquired_price: parseFloat(cur["Purchase Price"]) || 0,
-              lang: Languages[cur.Language],
-              name: card.name,
-            });
+          } else {
+            prev.push(parseCardToInsert(card, cur, collectionId, treatment));
           }
           return prev;
         } catch (error) {
@@ -268,14 +285,81 @@ const addRowsToCollection = async (rows, collectionId, binder) => {
       transaction = await sequelize.transaction();
 
       try {
-        await CollectionCards.bulkCreate(cardsToInsert, {
+        const createdDate = new Date();
+        const values = cardsToInsert
+          .map((c) => {
+            return `(${[
+              sequelize.escape(c.collectionId),
+              sequelize.escape(c.cardId),
+              sequelize.escape(c.treatment || ""),
+              sequelize.escape(c.lang || "en"),
+              parseInt(c.quantity) || 0,
+              sequelize.escape(c.condition || "Near Mint"),
+              parseFloat(c.acquired_price) || 0,
+              sequelize.escape(c.name || "Unknown"),
+              sequelize.escape(createdDate),
+              sequelize.escape(createdDate),
+              sequelize.escape(binder),
+            ].join(",")})`;
+          })
+          .join(",");
+
+        let query = null;
+        if (["mysql", "vercel"].includes(process.env.SQL_TYPE)) {
+          query = `
+            INSERT INTO \`collection_cards\` (
+              \`collectionId\`, \`cardId\`, \`treatment\`, \`lang\`, 
+              \`quantity\`, \`condition\`, \`acquired_price\`, \`name\`, \`createdAt\`, \`updatedAt\`
+              ) 
+              VALUES ${values}
+              ON DUPLICATE KEY UPDATE 
+              \`quantity\` = \`quantity\` + VALUES(\`quantity\`),
+              \`name\` = VALUES(\`name\`); 
+              `;
+        } else {
+          query = `INSERT INTO collection_cards (collectionId, cardId, treatment, lang, quantity, "condition", acquired_price, name, createdAt, updatedAt, binderId) 
+            VALUES ${values}  ON CONFLICT (collectionId, cardId, treatment, lang, "condition", binderId) DO UPDATE SET quantity = collection_cards.quantity + excluded.quantity, updatedAt = ${sequelize.escape(createdDate)};`;
+        }
+        const res = await sequelize.query(query, {
           transaction,
         });
 
         await transaction.commit();
+
+        if (binder) {
+          // TODO: Pending to mysql
+          let insertedCards = await sequelize.query(
+            `SELECT id FROM collection_cards
+              WHERE createdAt = ${sequelize.escape(createdDate)} OR updatedAt = ${sequelize.escape(createdDate)}`,
+            { type: sequelize.QueryTypes.SELECT },
+          );
+
+          const result = await BindersCards.findAll({
+            where: {
+              [Op.or]: insertedCards.map((x) => ({
+                binderId: binder,
+                collectionCardId: x.id,
+              })),
+            },
+          });
+
+          const newlyAdded = insertedCards.filter(
+            (card) => !result.map((r) => r.collectionCardId).includes(card.id),
+          );
+
+          await BindersCards.bulkCreate(
+            newlyAdded.map((x) => ({
+              binderId: binder,
+              collectionCardId: x.id,
+            })),
+          );
+        }
+
         summary.imported = summary.imported + cardsToInsert.length;
       } catch (error) {
         await transaction.rollback();
+        console.error("SQL Error:", error.parent.sqlMessage);
+        console.error("SQL State:", error.parent.code);
         throw error;
       }
     }
@@ -327,6 +411,7 @@ const removeCardsFromCollection = async ({ cart, collection = null }) => {
 
       if (couldSell) {
         await collCard.decrement({ quantity: card.sold }, { transaction });
+        // TODO: Cascade a binders
         added = true;
       } else {
         error = "Cantidad solicitada mayor a disponible";
@@ -390,6 +475,43 @@ async function ensureUserCollection({ user }) {
   }
 }
 
+async function getBinders(colId) {
+  try {
+    if (!colId) {
+      throw "collection id required";
+    }
+
+    return await cacheService.getOrSet(
+      generateKey(prefixes.CollectionService, "gbbc", {
+        collection: colId,
+      }),
+      {},
+      () => Binders.findAll({ where: { collectionId: colId } }),
+    );
+  } catch (error) {
+    return error;
+  }
+}
+
+async function createBinder({ collectionId }, params) {
+  if (!collectionId) {
+    throw "collection id required";
+  }
+  if (!params.name) {
+    throw "collection id required";
+  }
+  const result = await Binders.create({ collectionId, ...params });
+
+  if (result)
+    cacheService.invalidate(
+      generateKey(prefixes.CollectionService, "gbbc", {
+        collection: params.collectionId,
+      }),
+      {},
+    );
+  return result;
+}
+
 async function clearCollectionCache() {
   cacheService.clearAll();
 }
@@ -401,4 +523,7 @@ module.exports = {
   getCardsByCollection,
   removeCardsFromCollection,
   clearCollectionCache,
+  // Binders
+  getBinders,
+  createBinder,
 };
