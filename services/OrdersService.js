@@ -2,7 +2,7 @@ const { prefixes, generateKey } = require("../utils/CacheUtils");
 const cacheService = require("./cacheService");
 const { BuyOrders, sequelize } = require("../database");
 const { getBoundaries } = require("../utils/Utils");
-const { removeCardsFromCollection } = require("./CollectionService");
+const { updateCardsFromCollection } = require("./CollectionService");
 const { Op, col } = require("sequelize");
 class OrdersService {
   async getOrders({ game, order, query }) {
@@ -96,7 +96,7 @@ class OrdersService {
 
       const result = order.forceClose
         ? order.cart
-        : await removeCardsFromCollection(order);
+        : await updateCardsFromCollection(order);
 
       if (result?.length || order.forceClose) {
         await BuyOrders.update(
@@ -104,7 +104,7 @@ class OrdersService {
             cart: JSON.stringify(result),
             status: order.forceClose
               ? "complete"
-              : result.every((x) => x.added)
+              : result.every((x) => x.sold)
                 ? "complete"
                 : "incomplete",
           },

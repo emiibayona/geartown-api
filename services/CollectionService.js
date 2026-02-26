@@ -68,38 +68,21 @@ const getCardsByCollection = async (collectionId, params) => {
     }
 
     if (cardWhere.colors) {
-      // cardWhere.color_identity = {
-      //   [Op.and]: [
-      //     sequelize.literal(
-      //       `json_array_length(card.color_identity) = ${cardWhere.colors.length}`,
-      //     ),
-      //   ].concat(
-      //     cardWhere.colors.map((x) =>
-      //       sequelize.literal(
-      //         `EXISTS (SELECT 1 FROM json_each(card.color_identity) WHERE value = '${x}')`,
-      //       ),
-      //     ),
-      //   ),
-      // };
-      if (cardWhere.colors) {
-        cardWhere.color_identity = {
-          [Op.and]: [
+      cardWhere.color_identity = {
+        [Op.and]: [
+          sequelize.literal(
+            `JSON_LENGTH(card.color_identity) = ${cardWhere.colors.length}`,
+          ),
+          ...cardWhere.colors.map((color) =>
             sequelize.literal(
-              `JSON_LENGTH(card.color_identity) = ${cardWhere.colors.length}`,
+              `JSON_CONTAINS(card.color_identity, '"${color}"')`,
             ),
-            ...cardWhere.colors.map((color) =>
-              sequelize.literal(
-                `JSON_CONTAINS(card.color_identity, '"${color}"')`,
-              ),
-            ),
-          ],
-        };
-        delete cardWhere.colors;
-      }
+          ),
+        ],
+      };
       delete cardWhere.colors;
     }
 
-    // let includesOnCard = [{ model: BindersCards, required: false }];
     let includesOnCard = [];
     if (includeCards) {
       includesOnCard.push({
@@ -116,70 +99,23 @@ const getCardsByCollection = async (collectionId, params) => {
           "set",
         ],
         order: [["name", "DESC"]],
-        // include: [
-        //   {
-        //     model: CardFace,
-        //     as: "card_faces",
-        //     attributes: ["cardId", "image_uris"],
-        //     required: false,
-        //     // separate: true,
-        //   },
-        // ],
       });
     }
 
     const resolveAll = async () => {
-      // const boundaries = getBoundaries(params);
-      // const options = {
-      //   where: collectionWhere,
-      //   order: [
-      //     ["name", "ASC"],
-      //     ["acquired_price", "DESC"],
-      //   ],
-      //   attributes: [
-      //     ...Object.keys(CollectionCards.getAttributes()),
-      //     [sequelize.fn("sum", sequelize.col("quantity")), "quantity"],
-      //   ],
-      //   group: ["cardId"],
-      //   include: includesOnCard,
-      // };
-      // const [count, data] = await Promise.all([
-      //   CollectionCards.count({ ...options, attributes: [], include: [] }),
-      //   CollectionCards.findAndCountAll({ ...options, ...boundaries }),
-      // ]);
-      // return {
-      //   collectionId,
-      //   total: count.length,
-      //   pages: Math.ceil(count.length / boundaries.limit),
-      //   data: data.rows,
-      // };
-
       const boundaries = getBoundaries(params);
-
-      // 1. Obtenemos todos los nombres de columnas del modelo
       const modelAttributes = Object.keys(CollectionCards.getAttributes()).map(
         (attr) => {
           if (attr === "quantity") {
             return [sequelize.fn("SUM", sequelize.col("quantity")), "quantity"];
           }
-          // IMPORTANTE: Incluimos el ID dentro de un ANY_VALUE para que no explote
-          // if (attr === "id") {
-          //   return [
-          //     sequelize.fn("ANY_VALUE", sequelize.col("collection_card.id")),
-          //     "id",
-          //   ];
-          // }
           if (attr === "cardId") return "cardId";
-
           return [
             sequelize.fn("ANY_VALUE", sequelize.col(`collection_card.${attr}`)),
             attr,
           ];
         },
       );
-
-      // 2. Transformamos los atributos para que sean compatibles con GROUP BY en MySQL
-      const safeAttributes = modelAttributes;
 
       const options = {
         where: collectionWhere,
@@ -188,9 +124,8 @@ const getCardsByCollection = async (collectionId, params) => {
           ["acquired_price", "DESC"],
         ],
         attributes: modelAttributes,
-        group: ["cardId"], // Agrupación principal
+        group: ["cardId"],
         include: includesOnCard,
-        // ESTAS TRES LÍNEAS SON VITALES
         subQuery: false,
         raw: true,
         nest: true,
@@ -209,7 +144,7 @@ const getCardsByCollection = async (collectionId, params) => {
         CollectionCards.findAll({ ...options, ...boundaries }),
       ]);
 
-      const totalGroups = count.length || 0; // El número de grupos (cartas únicas)
+      const totalGroups = count.length || 0;
 
       return {
         collectionId,
@@ -463,10 +398,13 @@ const addRowsToCollection = async (rows, collectionId, binder = "default") => {
   return summary;
 };
 
-const removeCardsFromCollection = async ({ cart, collection = null }) => {
-  if (!cart) throw "Cartas son requeridas";
+const updateCardsFromCollection = async ({
+  cards,
+  collection = null,
+  game,
+}) => {
+  if (!cards) throw "Cartas son requeridas";
 
-  // Improve to generic
   const collectionId =
     collection ||
     (await findCollectionByUser(process.env.MTG_SELLER_EMAIL))?.collectionId;
@@ -475,35 +413,67 @@ const removeCardsFromCollection = async ({ cart, collection = null }) => {
   const transaction = await sequelize.transaction();
   const cardsProcessed = [];
   try {
-    for (const card of cart) {
-      const collCard = await CollectionCards.findOne({
-        where: { collectionId, cardId: card.cardId, quantity: [] },
+    const getCard = async (cardId) =>
+      await CollectionCards.findOne({
+        where: { collectionId, cardId },
       });
 
-      // Funciona solo si la cantidad a remover es menor  o igual a lo que hay
-      // TODO: Improve manejo de remover mas de lo que hay.
-      let added = false;
+    for (const card of cards) {
+      let sold = false;
       let error = "";
-      const couldSell =
-        collCard && card.sold > 0 && collCard.quantity >= card.sold;
+      let updated = false;
+      let shouldDestroy = false;
+      let collCard = null;
+      const onSaleVersion = Object.hasOwn(card, "sold");
 
-      if (couldSell) {
-        await collCard.decrement({ quantity: card.sold }, { transaction });
-        // TODO: Cascade a binders
-        added = true;
+      if (onSaleVersion) {
+        const couldSell = card.sold > 0;
+
+        if (couldSell) {
+          collCard = await getCard(card.cardId);
+          if (collCard?.quantity >= card.sold) {
+            await collCard.decrement({ quantity: card.sold }, { transaction });
+            if (collCard.quantity - card.sold <= 0) {
+              shouldDestroy = true;
+            }
+            sold = true;
+          } else {
+            error = "Supera el limite de stock o no disponible";
+          }
+        } else {
+          error = "Carta no agregada para la venta";
+        }
       } else {
-        error = "Cantidad solicitada mayor a disponible";
+        collCard = await getCard(card.cardId);
+        if (collCard) {
+          if (card.amount > 0) {
+            await collCard.update({ quantity: card.amount }, { transaction });
+          } else {
+            shouldDestroy = true;
+          }
+          updated = true;
+        }
+      }
+      // }
+
+      if (shouldDestroy) {
+        await collCard.destroy({ transaction });
+        const binder = await BindersCards.findOne({
+          where: { collectionCardId: collCard.id },
+        });
+        await binder.destroy({ transaction });
       }
 
       cardsProcessed.push({
         ...card,
-        added,
+        sold,
+        updated,
         error,
       });
     }
 
     await transaction.commit();
-    if (cardsProcessed.length) {
+    if (cardsProcessed.some((x) => x.sold || x.updated)) {
       cacheService.invalidate(
         generateKey(prefixes.CollectionService, "gcbc", {
           collection: collectionId,
@@ -599,7 +569,8 @@ module.exports = {
   addRowsToCollection,
   findCollectionByUser,
   getCardsByCollection,
-  removeCardsFromCollection,
+  // removeCardsFromCollection,
+  updateCardsFromCollection,
   clearCollectionCache,
   // Binders
   getBinders,

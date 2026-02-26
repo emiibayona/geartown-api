@@ -3,9 +3,9 @@ const {
   findCollectionByUser,
   getCardsByCollection,
   clearCollectionCache,
-  removeCardsFromCollection,
   getBinders,
   createBinder,
+  updateCardsFromCollection,
 } = require("../services/CollectionService");
 const { parseCSV } = require("../utils/CsvParser");
 const { getGame } = require("../utils/Utils");
@@ -74,17 +74,28 @@ controller.cardsByUser = async function (req, res) {
 
 controller.updateCardsSingles = async function (req, res) {
   try {
-    const result = await removeCardsFromCollection({
+    const result = await updateCardsFromCollection({
       game: getGame(req),
       collection: req.params.collectionId,
-      cart: req.body,
+      cards: req.body,
     });
     res.status(200).json(result);
   } catch (error) {
     res.status(500).json({ error: "Failed upon updating cards" });
   }
 };
-controller.updateCards = async function (req, res) {};
+controller.updateCards = async function (req, res) {
+  try {
+    const result = await updateCardsFromCollection({
+      game: getGame(req),
+      collection: req.params.collectionId,
+      cards: req.body.cards,
+    });
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({ error: "Failed upon updating cards" });
+  }
+};
 
 controller.flushCache = async (req, res) => {
   try {

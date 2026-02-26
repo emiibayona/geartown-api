@@ -15,5 +15,5 @@ const getBoundaries = (bond) => {
     page: parseInt(bond?.page || 1),
   };
 };
-const getGame = (req) => req.params.game;
+const getGame = (req) => req.params.game || req.body.game;
 module.exports = { chunkArray, getBoundaries, getGame };
