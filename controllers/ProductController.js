@@ -10,7 +10,7 @@ controller.addProducts = async function (req, res) {
 
     // 1. Convert buffer to stream
     const bufferStream = new require("stream").PassThrough();
-    bufferStream.push(req.file.buffer);
+    bufferStream.end(req.file.buffer);
 
     // 2. Parse CSV
     const rows = await parseCSV(bufferStream);
@@ -25,7 +25,7 @@ controller.addProducts = async function (req, res) {
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Failed to add products" });
+    return res.status(500).json({ error: "Failed to add products" });
   }
 };
 
