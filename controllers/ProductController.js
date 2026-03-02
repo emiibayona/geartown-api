@@ -4,16 +4,20 @@ const { parseCSV } = require("../utils/CsvParser");
 
 controller.addProducts = async function (req, res) {
   try {
-    if (!req.file) {
-      return res.status(400).json({ error: "CSV file is required" });
+    if (!req.file || !req.body) {
+      return res.status(400).json({ error: "CSV file or body is required" });
     }
+    let rows = [];
+    if (req.file) {
+      // 1. Convert buffer to stream
+      const bufferStream = new require("stream").PassThrough();
+      bufferStream.end(req.file.buffer);
 
-    // 1. Convert buffer to stream
-    const bufferStream = new require("stream").PassThrough();
-    bufferStream.end(req.file.buffer);
-
-    // 2. Parse CSV
-    const rows = await parseCSV(bufferStream);
+      // 2. Parse CSV
+      rows = await parseCSV(bufferStream);
+    } else {
+      rows = req.body;
+    }
 
     // 3. Add to Database
     const result = await addProducts(rows);
