@@ -71,13 +71,15 @@ const getCardsByCollection = async (collectionId, params) => {
       cardWhere.color_identity = {
         [Op.and]: [
           sequelize.literal(
-            `JSON_LENGTH(card.color_identity) = ${cardWhere.colors.length}`,
+            `${process.env.SQL_TYPE === "sqlite" ? "JSON_LENGTH(card.color_identity)" : "JSON_LENGTH(\`card\`.\`color_identity\`)"} = ${cardWhere.colors.includes("CLS") ? cardWhere.colors.length - 1 : cardWhere.colors.length}`,
           ),
-          ...cardWhere.colors.map((color) =>
-            sequelize.literal(
-              `JSON_CONTAINS(card.color_identity, '"${color}"')`,
+          ...cardWhere.colors
+            .filter((x) => x !== "CLS")
+            .map((color) =>
+              sequelize.literal(
+                `${process.env.SQL_TYPE === "sqlite" ? "JSON_CONTAINS(card.color_identity" : "JSON_CONTAINS(\`card\`.\`color_identity\`"}, '"${color}"')`,
+              ),
             ),
-          ),
         ],
       };
       delete cardWhere.colors;
