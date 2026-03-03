@@ -9,6 +9,7 @@ const infoRoutes = require("./InfoRoutes");
 const productsRoutes = require("./ProductsRoutes");
 const orderRoutes = require("./OrdersRoutes");
 const cacheRoutes = require("./CacheRoutes");
+const filesRoutes = require("./FilesRouter");
 
 // TODO:
 // Agregar middleware para manejar las llamadas de admin o usuario comun.
@@ -21,7 +22,10 @@ router.use("/info", infoRoutes);
 router.use("/products", productsRoutes);
 router.use("/orders", orderRoutes);
 router.use("/cache", cacheRoutes);
+router.use("/files", filesRoutes);
 
-router.get("/", (req, res) => {});
+router.get("/", (req, res) => {
+  res.status(200).json({ test: "Tested" });
+});
 
 module.exports = router;
