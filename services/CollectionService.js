@@ -27,12 +27,12 @@ const findCollectionByUser = async (user) => {
   try {
     const userFound = await userService.findUserByEmail(user);
     if (!userFound) {
-      return "User not found";
+      throw "User not found";
     }
 
     return await ensureUserCollection({ user: userFound });
   } catch (error) {
-    return error;
+    throw error;
   }
 };
 

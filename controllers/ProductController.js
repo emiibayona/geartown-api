@@ -29,7 +29,9 @@ controller.addProducts = async function (req, res) {
     });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ error: "Failed to add products" });
+    return res
+      .status(500)
+      .json({ error: "Failed to add products", message: error });
   }
 };
 

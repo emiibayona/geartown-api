@@ -9,16 +9,18 @@ service.addProducts = async function (products) {
   try {
     const productsGrouped = Object.groupBy(products, (product) => product.type);
     const cache = [];
-    for (qprods of Object.keys(productsGrouped)) {
-      console.log(productsGrouped);
-      console.log(prods);
+    for (prods of Object.keys(productsGrouped)) {
       await Products.bulkCreate(productsGrouped[prods], { transaction });
       cache.push(
-        cacheService.invalidate(
-          generateKey(prefixes.ProductsService, "gp", {
-            type: prods,
-          }),
-        ),
+        new Promise((resolve) => {
+          resolve(
+            cacheService.invalidate(
+              generateKey(prefixes.ProductsService, "gp", {
+                type: prods,
+              }),
+            ),
+          );
+        }),
       );
     }
 
@@ -27,6 +29,7 @@ service.addProducts = async function (products) {
     return productsGrouped;
   } catch (error) {
     await transaction?.rollback();
+    throw error;
   }
 };
 service.getProducts = async function (type, query = {}) {

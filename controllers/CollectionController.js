@@ -68,7 +68,9 @@ controller.cardsByUser = async function (req, res) {
       return res.status(200).json(result);
     }
   } catch (error) {
-    res.status(500).json({ error: "Failed on retrieve collection cards" });
+    res
+      .status(500)
+      .json({ error: "Failed on retrieve collection cards", message: error });
   }
 };
 
