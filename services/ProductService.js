@@ -42,7 +42,44 @@ service.getProducts = async function (type, query = {}) {
       type,
     }),
     { query },
-    () => Products.findAndCountAll({ where: { type, ...query } }),
+    () =>
+      Products.findAndCountAll({
+        where: { type, ...query },
+        order: [["updatedAt", "DESC"]],
+      }),
   );
+};
+service.updateProduct = async (body) => {
+  try {
+    if (!body) throw "Body required";
+    const res = await Products.update(body, { where: { id: body.id } });
+
+    if (res >= 1) {
+      cacheService.invalidate(
+        generateKey(prefixes.ProductsService, "gp", {
+          type: body.type,
+        }),
+      );
+    }
+    return body;
+  } catch (error) {
+    throw error;
+  }
+};
+service.deleteProduct = async ({ id, type }) => {
+  try {
+    if (!id || !type) throw "Id and type required";
+    const res = await Products.destroy({ where: { id } });
+    if (res >= 1) {
+      cacheService.invalidate(
+        generateKey(prefixes.ProductsService, "gp", {
+          type,
+        }),
+      );
+    }
+    return res;
+  } catch (error) {
+    throw error;
+  }
 };
 module.exports = service;

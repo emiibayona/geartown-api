@@ -1,10 +1,15 @@
 const controller = {};
-const { addProducts, getProducts } = require("../services/ProductService");
+const {
+  addProducts,
+  getProducts,
+  deleteProduct,
+  updateProduct,
+} = require("../services/ProductService");
 const { parseCSV } = require("../utils/CsvParser");
 
 controller.addProducts = async function (req, res) {
   try {
-    if (!req.file || !req.body) {
+    if (!req.file && !req.body) {
       return res.status(400).json({ error: "CSV file or body is required" });
     }
     let rows = [];
@@ -16,7 +21,7 @@ controller.addProducts = async function (req, res) {
       // 2. Parse CSV
       rows = await parseCSV(bufferStream);
     } else {
-      rows = req.body;
+      rows = [req.body];
     }
 
     // 3. Add to Database
@@ -48,6 +53,23 @@ controller.getProducts = async function (req, res) {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Failed to retrieve products" });
+  }
+};
+
+controller.delete = async (req, res) => {
+  try {
+    const result = await deleteProduct(req.params);
+    res.status(200).json({ result, action: "Performed OK" });
+  } catch (error) {
+    return res.status(500).json({ error: "Failed to process", message: error });
+  }
+};
+controller.update = async (req, res) => {
+  try {
+    const result = await updateProduct(req.body);
+    res.status(200).json({ result, action: "Performed OK" });
+  } catch (error) {
+    return res.status(500).json({ error: "Failed to process", message: error });
   }
 };
 module.exports = controller;
