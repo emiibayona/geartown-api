@@ -7,6 +7,7 @@ const {
   CollectionUsers,
   BindersCards,
   Binders,
+  Set,
 } = require("../database");
 const { Op, col, QueryTypes } = require("sequelize");
 const { prefixes, generateKey } = require("../utils/CacheUtils");
@@ -14,6 +15,7 @@ const { chunkArray, getBoundaries } = require("../utils/Utils");
 const cacheService = require("./cacheService");
 const BinderService = require("./BinderService");
 const userService = require("./UserService");
+const CardService = require("./CardService");
 
 const findCollectionById = async (id) => {
   if (!id) {
@@ -34,8 +36,37 @@ const findCollectionByUser = async (user) => {
     throw error;
   }
 };
+const getIncludes = (types) => {
+  let includesOnCard = [];
+  let includesOnCollectionCard = [];
 
-const getCardsByCollection = async (collectionId, params) => {
+  if (types?.card) {
+    includesOnCard.push({
+      model: Card,
+      as: "card",
+      where: types.card,
+      attributes: [
+        "id",
+        "name",
+        "image_uris",
+        "colors",
+        "color_identity",
+        "rarity",
+        "set",
+      ],
+      order: [["name", "DESC"]],
+    });
+  }
+  if (types?.set) {
+    includesOnCard.push({
+      model: Set,
+      where: types.set,
+    });
+  }
+  return { card: includesOnCard, collection: includesOnCollectionCard };
+};
+
+async function getCards({ collectionId, params }) {
   try {
     if (!collectionId) return "Collection Id is required";
 
@@ -66,11 +97,9 @@ const getCardsByCollection = async (collectionId, params) => {
     if (cardWhere?.set === "") {
       delete cardWhere.set;
     }
-
     if (cardWhere.rarity) {
       cardWhere.rarity = { [Op.or]: cardWhere.rarity };
     }
-
     if (cardWhere.colors) {
       cardWhere.color_identity = {
         [Op.and]: [
@@ -91,21 +120,7 @@ const getCardsByCollection = async (collectionId, params) => {
 
     let includesOnCard = [];
     if (includeCards) {
-      includesOnCard.push({
-        model: Card,
-        as: "card",
-        where: cardWhere,
-        attributes: [
-          "id",
-          "name",
-          "image_uris",
-          "colors",
-          "color_identity",
-          "rarity",
-          "set",
-        ],
-        order: [["name", "DESC"]],
-      });
+      includesOnCard = getIncludes({ card: cardWhere }).card;
     }
 
     const resolveAll = async () => {
@@ -170,6 +185,34 @@ const getCardsByCollection = async (collectionId, params) => {
   } catch (error) {
     return error;
   }
+}
+
+const getCardsBySomething = async (arr) => {
+  try {
+    return await cacheService.getOrSet(
+      generateKey(prefixes.CollectionService, "gcbs", {}),
+      { arr },
+      () =>
+        CollectionCards.findAll({
+          limit: 2000,
+          where: {
+            [Op.or]: arr.map((x) => {
+              x.collector_number = x.collectorNumber;
+              delete x.quantity;
+              delete x.collectorNumber;
+              return x;
+            }),
+          },
+          include: getIncludes({ card: {} }).card,
+        }),
+    );
+  } catch (error) {
+    throw error;
+  }
+};
+
+const getCardsByCollection = async (collectionId, params) => {
+  return await getCards({ collectionId, params });
 };
 
 const parseCardToInsert = (card, cur, collectionId, treatment) => ({
@@ -181,6 +224,8 @@ const parseCardToInsert = (card, cur, collectionId, treatment) => ({
   condition: cur.Condition || "Near Mint",
   acquired_price: parseFloat(cur["Purchase Price"]) || 0,
   name: card.name,
+  collector_number: card.collector_number,
+  set: card.dataValues.set,
 });
 
 const addRowsToCollection = async (rows, collectionId, binder = "default") => {
@@ -320,6 +365,8 @@ const addRowsToCollection = async (rows, collectionId, binder = "default") => {
               sequelize.escape(createdDate),
               sequelize.escape(createdDate),
               sequelize.escape(binder),
+              sequelize.escape(c.collector_number),
+              sequelize.escape(c.set),
             ].join(",")})`;
           })
           .join(",");
@@ -329,7 +376,7 @@ const addRowsToCollection = async (rows, collectionId, binder = "default") => {
           query = `
             INSERT INTO \`collection_cards\` (
               \`collectionId\`, \`cardId\`, \`treatment\`, \`lang\`, 
-              \`quantity\`, \`condition\`, \`acquired_price\`, \`name\`, \`createdAt\`, \`updatedAt\`, \`binderId\`
+              \`quantity\`, \`condition\`, \`acquired_price\`, \`name\`, \`createdAt\`, \`updatedAt\`, \`binderId\`, \`collector_number\`, \`set\`
               ) 
               VALUES ${values}
               ON DUPLICATE KEY UPDATE 
@@ -337,7 +384,7 @@ const addRowsToCollection = async (rows, collectionId, binder = "default") => {
               \`name\` = VALUES(\`name\`); 
               `;
         } else {
-          query = `INSERT INTO collection_cards (collectionId, cardId, treatment, lang, quantity, "condition", acquired_price, name, createdAt, updatedAt, binderId) 
+          query = `INSERT INTO collection_cards (collectionId, cardId, treatment, lang, quantity, "condition", acquired_price, name, createdAt, updatedAt, binderId, collector_number, set) 
             VALUES ${values}  ON CONFLICT (collectionId, cardId, treatment, lang, "condition", binderId) DO UPDATE SET quantity = collection_cards.quantity + excluded.quantity, updatedAt = ${sequelize.escape(createdDate)};`;
         }
         const res = await sequelize.query(query, {
@@ -575,6 +622,7 @@ module.exports = {
   addRowsToCollection,
   findCollectionByUser,
   getCardsByCollection,
+  getCardsBySomething,
   // removeCardsFromCollection,
   updateCardsFromCollection,
   clearCollectionCache,

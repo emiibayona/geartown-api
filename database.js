@@ -84,7 +84,7 @@ Card.init(
 
     // Print & Set Info
     set_id: { type: DataTypes.UUID },
-    set: { type: DataTypes.STRING(255) },
+    set: { type: DataTypes.STRING(10) },
     set_name: { type: DataTypes.STRING(255) },
     set_type: { type: DataTypes.STRING(255) },
     collector_number: { type: DataTypes.STRING(255) },
@@ -262,11 +262,15 @@ CollectionCards.init(
       allowNull: true,
       unique: "uce",
     },
+    set: { type: DataTypes.STRING(10) },
+    collector_number: { type: DataTypes.STRING(10) },
   },
   {
     sequelize,
     modelName: "collection_card",
     indexes: [
+      { fields: ["set"] },
+      { fields: ["collector_number"] },
       { fields: ["collectionId"] },
       { fields: ["cardId"] },
       {
@@ -428,8 +432,12 @@ Card.belongsToMany(Collection, {
 // Optional: For easier querying, define "Super" Many-to-Many
 Collection.hasMany(CollectionCards);
 CollectionCards.belongsTo(Collection);
+
 Card.hasMany(CollectionCards);
 CollectionCards.belongsTo(Card);
+
+// Set.hasMany(CollectionCards);
+// CollectionCards.belongsTo(Set);
 
 // CollectionCards.belongsToMany(Binders, {
 //   through: BindersCards,

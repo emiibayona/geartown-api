@@ -1,22 +1,26 @@
 const { Card, CardFace } = require("../database");
 const cacheService = require("./cacheService");
 const { generateKey, prefixes } = require("../utils/CacheUtils");
+const { getBoundaries } = require("../utils/Utils");
 
 class CardsService {
-  async getAllCards(params = { page: 1, limit: 20 }) {
-    let { offset, limit } = params;
-    limit = parseInt(limit) || 20;
-
-    return await cacheService.getOrSet(
-      generateKey(prefixes.CardService, "gac"),
-      { offset, limit },
-      () =>
-        Card.findAndCountAll({
-          limit,
-          offset,
-          order: [["released_at", "DESC"]], // Good practice to have a default sort
-        }),
-    );
+  async getAllCards(params) {
+    try {
+      const { limit, offset } = getBoundaries(params);
+      return await cacheService.getOrSet(
+        generateKey(prefixes.CardService, "gac"),
+        { params },
+        () =>
+          Card.findAndCountAll({
+            offset,
+            limit,
+            order: [["released_at", "DESC"]], // Good practice to have a default sort
+            where: params?.where || {},
+          }),
+      );
+    } catch (error) {
+      throw error;
+    }
   }
 
   async getCardById(id) {

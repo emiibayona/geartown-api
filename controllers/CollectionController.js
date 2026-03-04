@@ -6,6 +6,7 @@ const {
   getBinders,
   createBinder,
   updateCardsFromCollection,
+  getCardsBySomething,
 } = require("../services/CollectionService");
 const { parseCSV } = require("../utils/CsvParser");
 const { getGame } = require("../utils/Utils");
@@ -52,6 +53,14 @@ const getCardsCollection = async (params, query) => {
 controller.cardsByCollection = async function (req, res) {
   try {
     const result = await getCardsCollection(req.params, req.query);
+    return res.status(200).json(result);
+  } catch (error) {}
+};
+
+controller.getCardsToAddCart = async function (req, res) {
+  try {
+    if (!req.body) return res.status(400).send("Body required");
+    const result = await getCardsBySomething(req.body);
     return res.status(200).json(result);
   } catch (error) {}
 };

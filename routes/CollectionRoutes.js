@@ -16,4 +16,6 @@ router.get("/:collectionId/binders", controller.getBinders);
 router.post("/:collectionId/binders", controller.createBinder);
 // Cache
 router.post("/flush-cache", controller.flushCache);
+// Cart
+router.post("/to-cart/list", controller.getCardsToAddCart);
 module.exports = router;
