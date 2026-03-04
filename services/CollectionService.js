@@ -1,11 +1,10 @@
-const { Languages, CARD_TREATMENT, MTG } = require("../utils/constants");
+const { Languages, CARD_TREATMENT } = require("../utils/constants");
 const {
   sequelize,
   Card,
   CollectionCards,
   Collection,
   CollectionUsers,
-  CardFace,
   BindersCards,
   Binders,
 } = require("../database");
@@ -45,7 +44,12 @@ const getCardsByCollection = async (collectionId, params) => {
     const includeCards = params?.cards === "true" ? true : false;
 
     if (params.name) {
-      collectionWhere.name = { [Op.like]: `%${params.name}%` };
+      collectionWhere.name = sequelize.where(
+        sequelize.fn("LOWER", sequelize.col("collection_card.name")),
+        {
+          [Op.like]: `%${params.name.toLowerCase()}%`,
+        },
+      );
     }
     if (params.treatment) {
       collectionWhere.treatment =
@@ -126,7 +130,7 @@ const getCardsByCollection = async (collectionId, params) => {
           ["acquired_price", "DESC"],
         ],
         attributes: modelAttributes,
-        group: ["cardId"],
+        group: ["cardId", "treatment"],
         include: includesOnCard,
         subQuery: false,
         raw: true,
@@ -136,7 +140,7 @@ const getCardsByCollection = async (collectionId, params) => {
       const [count, data] = await Promise.all([
         CollectionCards.count({
           where: collectionWhere,
-          group: ["cardId"],
+          group: ["cardId", "treatment"],
           include: includesOnCard.map((i) => ({
             ...i,
             attributes: [],
@@ -415,9 +419,9 @@ const updateCardsFromCollection = async ({
   const transaction = await sequelize.transaction();
   const cardsProcessed = [];
   try {
-    const getCard = async (cardId) =>
+    const getCard = async (id) =>
       await CollectionCards.findOne({
-        where: { collectionId, cardId },
+        where: { collectionId, id },
       });
 
     for (const card of cards) {
@@ -432,7 +436,7 @@ const updateCardsFromCollection = async ({
         const couldSell = card.sold > 0;
 
         if (couldSell) {
-          collCard = await getCard(card.cardId);
+          collCard = await getCard(card.id);
           if (collCard?.quantity >= card.sold) {
             await collCard.decrement({ quantity: card.sold }, { transaction });
             if (collCard.quantity - card.sold <= 0) {
@@ -446,7 +450,7 @@ const updateCardsFromCollection = async ({
           error = "Carta no agregada para la venta";
         }
       } else {
-        collCard = await getCard(card.cardId);
+        collCard = await getCard(card.id);
         if (collCard) {
           if (card.amount > 0) {
             await collCard.update({ quantity: card.amount }, { transaction });
