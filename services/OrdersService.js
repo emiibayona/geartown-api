@@ -1,7 +1,7 @@
 const { prefixes, generateKey } = require("../utils/CacheUtils");
 const cacheService = require("./cacheService");
 const { BuyOrders, sequelize } = require("../database");
-const { getBoundaries } = require("../utils/Utils");
+const { getBoundaries, getLowerColLike } = require("../utils/Utils");
 const { updateCardsFromCollection } = require("./CollectionService");
 const { Op, col } = require("sequelize");
 class OrdersService {
@@ -20,8 +20,8 @@ class OrdersService {
           status: query?.status || "",
           [Op.or]: [
             { id: query?.search },
-            { name: { [Op.like]: `%${query?.search}%` } },
-            { contact: { [Op.like]: `%${query?.search}%` } },
+            { name: getLowerColLike("buy_order.name", query?.search) },
+            { contact: getLowerColLike("buy_order.contact", query?.search) },
           ],
         };
         if (!query?.status) {
@@ -44,20 +44,15 @@ class OrdersService {
   async getOrdersResume(game) {
     try {
       if (!game) throw "Game is required";
-      return await cacheService.getOrSet(
-        generateKey(prefixes.OrdersService, "gores", { game }),
-        {},
-        () =>
-          BuyOrders.findAll({
-            attributes: [
-              "status",
-              [sequelize.fn("COUNT", sequelize.col("status")), "total"],
-            ],
-            where: game,
-            group: ["status"],
-            raw: true,
-          }),
-      );
+      return await BuyOrders.findAll({
+        attributes: [
+          "status",
+          [sequelize.fn("COUNT", sequelize.col("status")), "total"],
+        ],
+        where: game,
+        group: ["status"],
+        raw: true,
+      });
     } catch (error) {
       return error;
     }
@@ -78,6 +73,9 @@ class OrdersService {
 
       cacheService.invalidate(
         generateKey(prefixes.OrdersService, "gos", { game }),
+      );
+      cacheService.invalidate(
+        generateKey(prefixes.OrdersService, "gobi", { game }),
       );
       cacheService.invalidate(
         generateKey(prefixes.OrdersService, "gores", { game }),
@@ -112,7 +110,6 @@ class OrdersService {
         );
         cacheService.invalidate(
           generateKey(prefixes.OrdersService, "gobi", { game }),
-          { order: order.id },
         );
         cacheService.invalidate(
           generateKey(prefixes.OrdersService, "gos", { game }),

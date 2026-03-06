@@ -1,3 +1,6 @@
+const { Op, col } = require("sequelize");
+const { sequelize } = require("../database");
+
 const chunkArray = (array, size) => {
   const chunks = [];
   for (let i = 0; i < array.length; i += size) {
@@ -16,4 +19,12 @@ const getBoundaries = (bond) => {
   };
 };
 const getGame = (req) => req.params.game || req.body.game;
-module.exports = { chunkArray, getBoundaries, getGame };
+
+const getLowerColLike = (col, value) =>
+  sequelize.where(
+    sequelize.fn("LOWER", sequelize.col(col)),
+    {
+      [Op.like]: `%${value.toLowerCase()}%`,
+    },
+  );
+module.exports = { chunkArray, getBoundaries, getGame, getLowerColLike };

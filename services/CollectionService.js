@@ -474,7 +474,7 @@ const updateCardsFromCollection = async ({
   try {
     const getCard = async (id) =>
       await CollectionCards.findOne({
-        where: { collectionId, id },
+        where: { collectionId, [Op.or]: { id, cardId: id } },
       });
 
     for (const card of cards) {
@@ -489,7 +489,7 @@ const updateCardsFromCollection = async ({
         const couldSell = card.sold > 0;
 
         if (couldSell) {
-          collCard = await getCard(card.id);
+          collCard = await getCard(card.cardId);
           if (collCard?.quantity >= card.sold) {
             await collCard.decrement({ quantity: card.sold }, { transaction });
             if (collCard.quantity - card.sold <= 0) {
