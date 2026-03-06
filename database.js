@@ -389,7 +389,7 @@ BuyOrders.init(
     contact: { type: DataTypes.STRING(255), allowNull: false },
     name: { type: DataTypes.STRING(255), allowNull: false },
     comments: { type: DataTypes.STRING(255), allowNull: true },
-    cart: { type: DataTypes.TEXT, allowNull: false },
+    cart: { type: DataTypes.JSON, allowNull: false },
     game: { type: DataTypes.STRING(50), allowNull: false },
     status: {
       type: DataTypes.ENUM("pending", "incomplete", "complete"),
