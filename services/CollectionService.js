@@ -90,7 +90,14 @@ async function getCards({ collectionId, params }) {
     }
     if (cardWhere.type) {
       cardWhere.type_line = {
-        [Op.and]: cardWhere.type.map((x) => ({ [Op.like]: `%${x}%` })),
+        [Op.and]: cardWhere.type.map((x) =>
+          sequelize.where(
+            sequelize.fn("LOWER", sequelize.col("card.type_line")),
+            {
+              [Op.like]: `%${x}%`,
+            },
+          ),
+        ),
       };
       delete cardWhere.type;
     }
@@ -243,7 +250,7 @@ const addRowsToCollection = async (rows, collectionId, binder = "default") => {
     totalCards: 0,
   };
 
-  const BATCH_SIZE = 100;
+  const BATCH_SIZE = 200;
 
   rows = rows.reduce((acc, current) => {
     const existing = acc.find(
@@ -384,8 +391,7 @@ const addRowsToCollection = async (rows, collectionId, binder = "default") => {
               \`name\` = VALUES(\`name\`); 
               `;
         } else {
-          query = `INSERT INTO collection_cards (collectionId, cardId, treatment, lang, quantity, "condition", acquired_price, name, createdAt, updatedAt, binderId, collector_number, set) 
-            VALUES ${values}  ON CONFLICT (collectionId, cardId, treatment, lang, "condition", binderId) DO UPDATE SET quantity = collection_cards.quantity + excluded.quantity, updatedAt = ${sequelize.escape(createdDate)};`;
+          query = `INSERT INTO collection_cards (collectionId, cardId, treatment, lang, quantity, "condition", acquired_price, name, createdAt, updatedAt, binderId, collector_number, "set") VALUES ${values} ON CONFLICT (collectionId, cardId, treatment, lang, binderId) DO UPDATE SET quantity = collection_cards.quantity + excluded.quantity, updatedAt = ${sequelize.escape(createdDate)};`;
         }
         const res = await sequelize.query(query, {
           transaction,
