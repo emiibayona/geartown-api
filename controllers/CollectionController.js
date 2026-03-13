@@ -101,6 +101,7 @@ controller.updateCards = async function (req, res) {
       game: getGame(req),
       collection: req.params.collectionId,
       cards: req.body.cards,
+      binder: req.body.binder,
     });
     res.status(200).json(result);
   } catch (error) {

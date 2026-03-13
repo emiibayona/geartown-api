@@ -74,6 +74,9 @@ async function getCards({ collectionId, params }) {
     const cardWhere = JSON.parse(params.cardWhere || "{}");
     const includeCards = params?.cards === "true" ? true : false;
 
+    if (params.binder) {
+      collectionWhere.binderId = params.binder;
+    }
     if (params.name) {
       collectionWhere.name = sequelize.where(
         sequelize.fn("LOWER", sequelize.col("collection_card.name")),
@@ -263,6 +266,7 @@ const addRowsToCollection = async (rows, collectionId, binder = "default") => {
       ) {
         return x;
       } else if (
+        x["Set code"] &&
         x["Set code"] === current["Set code"] &&
         x["Collector number"] === current["Collector number"] &&
         (x.Foil || "normal") === (current.Foil || "normal")
@@ -270,16 +274,6 @@ const addRowsToCollection = async (rows, collectionId, binder = "default") => {
         return x;
       }
     });
-
-    //  const existing = acc.find(
-    //   (x) =>
-    //     (x.Edition === current.Edition ||
-    //       x["Set code"] === current["Set code"]) &&
-    //     (x["Collector number"] === current["Collector number"] ||
-    //       x["Collector Number"] === current["Collector Number"]) &&
-    //     ((x.Foil || "regular") === (current.Foil || "regular") ||
-    //       (x.Foil || "normal") === (current.Foil || "normal")),
-    // );
 
     if (existing) {
       existing.Count =
@@ -483,10 +477,25 @@ const addRowsToCollection = async (rows, collectionId, binder = "default") => {
   return summary;
 };
 
+const getCardsToManage = async (
+  id,
+  collectionId,
+  single = true,
+  moreWhere = {},
+) => {
+  const options = {
+    where: { ...moreWhere, collectionId, [Op.or]: { id, cardId: id } },
+  };
+  return single
+    ? await CollectionCards.findOne(options)
+    : await CollectionCards.findAll(options);
+};
+
 const updateCardsFromCollection = async ({
   cards,
   collection = null,
   game,
+  binder,
 }) => {
   if (!cards) throw "Cartas son requeridas";
 
@@ -497,56 +506,106 @@ const updateCardsFromCollection = async ({
   if (!collectionId) throw "Collection es requerida";
   const transaction = await sequelize.transaction();
   const cardsProcessed = [];
+  let defaultBinder = null;
+  if (!binder) {
+    defaultBinder = (
+      await Binders.findOne({
+        where: { collectionId, name: "default" },
+      })
+    )?.id;
+  }
   try {
-    const getCard = async (id) =>
-      await CollectionCards.findOne({
-        where: { collectionId, [Op.or]: { id, cardId: id } },
-      });
-
     for (const card of cards) {
       let sold = false;
       let error = "";
       let updated = false;
-      let shouldDestroy = false;
-      let collCard = null;
+      let shouldDestroy = [];
+      let processed = [];
+      let collCards = null;
       const onSaleVersion = Object.hasOwn(card, "sold");
 
       if (onSaleVersion) {
         const couldSell = card.sold > 0;
 
         if (couldSell) {
-          collCard = await getCard(card.cardId);
-          if (collCard?.quantity >= card.sold) {
-            await collCard.decrement({ quantity: card.sold }, { transaction });
-            if (collCard.quantity - card.sold <= 0) {
-              shouldDestroy = true;
+          collCards = await getCardsToManage(card.cardId, collectionId, false);
+
+          let ongoingAmount = card.sold;
+
+          for (const collCard of collCards) {
+            if (ongoingAmount > 1) {
+              const allFromInstance = collCard.quantity <= ongoingAmount;
+              await collCard.decrement(
+                {
+                  quantity: allFromInstance ? collCard.quantity : ongoingAmount,
+                },
+                { transaction },
+              );
+              if (allFromInstance) {
+                shouldDestroy.push(collCard);
+              }
+              processed.push(collCard);
+              ongoingAmount -= collCard.quantity;
+              updated = true;
             }
-            sold = true;
-          } else {
-            error = "Supera el limite de stock o no disponible";
           }
         } else {
           error = "Carta no agregada para la venta";
         }
       } else {
-        collCard = await getCard(card.id);
-        if (collCard) {
-          if (card.amount > 0) {
-            await collCard.update({ quantity: card.amount }, { transaction });
-          } else {
-            shouldDestroy = true;
+        collCards = await getCardsToManage(
+          card.cardId,
+          collectionId,
+          false,
+          !!binder ? { binderId: binder } : {},
+        );
+
+        const decrement = card.quantity > card.amount;
+        let ongoingAmount = decrement
+          ? card.quantity - card.amount
+          : card.amount - card.quantity;
+
+        if (decrement) {
+          for (const collCard of collCards) {
+            if (ongoingAmount > 1) {
+              const allFromInstance = collCard.quantity <= ongoingAmount;
+              await collCard.decrement(
+                {
+                  quantity: allFromInstance ? collCard.quantity : ongoingAmount,
+                },
+                { transaction },
+              );
+              if (allFromInstance) {
+                shouldDestroy.push(collCard);
+              }
+              processed.push(collCard);
+              ongoingAmount -= collCard.quantity;
+              updated = true;
+            }
           }
+        } else {
+          const cardManage = collCards.find(
+            (x) => x.binderId === binder || defaultBinder,
+          );
+          if (collCards.length)
+            await (cardManage || collCards[0]).increment(
+              { quantity: ongoingAmount },
+              { transaction },
+            );
           updated = true;
         }
       }
-      // }
 
       if (shouldDestroy) {
-        await collCard.destroy({ transaction });
-        const binder = await BindersCards.findOne({
-          where: { collectionCardId: collCard.id },
-        });
-        await binder.destroy({ transaction });
+        for (const toDestroy of shouldDestroy) {
+          if (toDestroy.binderId !== defaultBinder) {
+            await toDestroy.destroy({ transaction });
+            const binder = await BindersCards.findOne({
+              where: { collectionCardId: toDestroy.id },
+            });
+            await binder.destroy({ transaction });
+          }
+        }
       }
 
       cardsProcessed.push({
