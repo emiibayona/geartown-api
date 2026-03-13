@@ -226,9 +226,10 @@ const parseCardToInsert = (card, cur, collectionId, treatment) => ({
   collectionId,
   cardId: card.id,
   treatment,
-  lang: Languages[cur.Language],
-  quantity: parseInt(cur.Count) || 1,
-  condition: cur.Condition || "Near Mint",
+  lang: Languages[cur.Language] || cur.Language,
+  quantity: parseInt(cur.Count) || parseInt(cur.Quantity) || 1,
+  // condition: cur.Condition || "Near Mint", HARDCODED for now
+  condition: "Near Mint",
   acquired_price: parseFloat(cur["Purchase Price"]) || 0,
   name: card.name,
   collector_number: card.collector_number,
@@ -253,12 +254,32 @@ const addRowsToCollection = async (rows, collectionId, binder = "default") => {
   const BATCH_SIZE = 200;
 
   rows = rows.reduce((acc, current) => {
-    const existing = acc.find(
-      (x) =>
+    const existing = acc.find((x) => {
+      if (
+        x.Edition &&
         x.Edition === current.Edition &&
         x["Collector Number"] === current["Collector Number"] &&
-        (x.Foil || "regular") === (current.Foil || "regular"),
-    );
+        (x.Foil || "regular") === (current.Foil || "regular")
+      ) {
+        return x;
+      } else if (
+        x["Set code"] === current["Set code"] &&
+        x["Collector number"] === current["Collector number"] &&
+        (x.Foil || "normal") === (current.Foil || "normal")
+      ) {
+        return x;
+      }
+    });
+
+    //  const existing = acc.find(
+    //   (x) =>
+    //     (x.Edition === current.Edition ||
+    //       x["Set code"] === current["Set code"]) &&
+    //     (x["Collector number"] === current["Collector number"] ||
+    //       x["Collector Number"] === current["Collector Number"]) &&
+    //     ((x.Foil || "regular") === (current.Foil || "regular") ||
+    //       (x.Foil || "normal") === (current.Foil || "normal")),
+    // );
 
     if (existing) {
       existing.Count =
@@ -288,7 +309,9 @@ const addRowsToCollection = async (rows, collectionId, binder = "default") => {
       x.Foil?.toLowerCase().includes(CARD_TREATMENT.FOIL),
     );
     const rowsRegular = chunk.filter(
-      (x) => x.Foil?.toLowerCase() === CARD_TREATMENT.NORMAL,
+      (x) =>
+        x.Foil?.toLowerCase() === CARD_TREATMENT.NORMAL ||
+        x.Foil?.toLowerCase() === CARD_TREATMENT.NORMAL_MANABOX,
     );
     const rowsEtched = chunk.filter((x) =>
       x.Foil?.toLowerCase().includes(CARD_TREATMENT.ETCHED),
@@ -301,8 +324,8 @@ const addRowsToCollection = async (rows, collectionId, binder = "default") => {
       where: {
         [Op.or]: arr.map((x) => ({
           [Op.and]: {
-            collector_number: x["Collector Number"],
-            set: x.Edition.toLowerCase(),
+            collector_number: x["Collector Number"] || x["Collector number"],
+            set: (x.Edition || x["Set code"]).toLowerCase(),
           },
         })),
       },
@@ -326,13 +349,16 @@ const addRowsToCollection = async (rows, collectionId, binder = "default") => {
       ar.reduce((prev, cur) => {
         const cards = arCheck.filter(
           (x) =>
-            x.collector_number === cur["Collector Number"] &&
-            cur.Edition.toLowerCase() === x.dataValues.set,
+            x.collector_number ===
+              (cur["Collector Number"] || cur["Collector number"]) &&
+            (cur.Edition || cur["Set code"]).toLowerCase() === x.dataValues.set,
         );
         const card =
           cards.length === 1
             ? cards[0]
-            : cards.find((x) => Languages[cur.Language] === x.lang);
+            : cards.find(
+                (x) => (Languages[cur.Language] || cur.Language) === x.lang,
+              );
         try {
           if (!card) {
             summary.notAdded.push(cur);

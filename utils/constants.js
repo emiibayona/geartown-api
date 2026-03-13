@@ -12,6 +12,7 @@ const constants = {
   }),
   CARD_TREATMENT: Object.freeze({
     NORMAL: "",
+    NORMAL_MANABOX: "normal",
     FOIL: "foil",
     ETCHED: "etched",
   }),
