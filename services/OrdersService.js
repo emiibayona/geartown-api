@@ -102,7 +102,7 @@ class OrdersService {
             cart: JSON.stringify(result),
             status: order.forceClose
               ? "complete"
-              : result.every((x) => x.sold)
+              : result.every((x) => x.reallySold)
                 ? "complete"
                 : "incomplete",
           },

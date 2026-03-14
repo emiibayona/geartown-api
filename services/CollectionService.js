@@ -239,7 +239,7 @@ const parseCardToInsert = (card, cur, collectionId, treatment) => ({
   set: card.dataValues.set,
 });
 
-const addRowsToCollection = async (rows, collectionId, binder = "default") => {
+const addRowsToCollection = async (rows, collectionId, binder) => {
   if (!rows?.length) {
     return "The collection to add is empty";
   }
@@ -516,37 +516,43 @@ const updateCardsFromCollection = async ({
   }
   try {
     for (const card of cards) {
-      let sold = false;
+      let reallySold = false;
       let error = "";
       let updated = false;
       let shouldDestroy = [];
-      let processed = [];
       let collCards = null;
       const onSaleVersion = Object.hasOwn(card, "sold");
 
       if (onSaleVersion) {
         const couldSell = card.sold > 0;
-
         if (couldSell) {
           collCards = await getCardsToManage(card.cardId, collectionId, false);
 
-          let ongoingAmount = card.sold;
-
-          for (const collCard of collCards) {
-            if (ongoingAmount > 1) {
-              const allFromInstance = collCard.quantity <= ongoingAmount;
-              await collCard.decrement(
-                {
-                  quantity: allFromInstance ? collCard.quantity : ongoingAmount,
-                },
-                { transaction },
-              );
-              if (allFromInstance) {
-                shouldDestroy.push(collCard);
+          if (
+            collCards.reduce((prev, cur) => (prev += cur.quantity), 0) <
+            card.sold
+          ) {
+            error = "No hay cartas disponibles para esta venta";
+            card.sold = 0;
+          } else {
+            let ongoingAmount = card.sold;
+            for (const collCard of collCards) {
+              if (ongoingAmount > 0) {
+                const allFromInstance = collCard.quantity <= ongoingAmount;
+                await collCard.decrement(
+                  {
+                    quantity: allFromInstance
+                      ? collCard.quantity
+                      : ongoingAmount,
+                  },
+                  { transaction },
+                );
+                if (allFromInstance) {
+                  shouldDestroy.push(collCard);
+                }
+                ongoingAmount -= collCard.quantity;
+                reallySold = true;
               }
-              processed.push(collCard);
-              ongoingAmount -= collCard.quantity;
-              updated = true;
             }
           }
         } else {
@@ -578,7 +584,6 @@ const updateCardsFromCollection = async ({
               if (allFromInstance) {
                 shouldDestroy.push(collCard);
               }
-              processed.push(collCard);
               ongoingAmount -= collCard.quantity;
               updated = true;
             }
@@ -596,28 +601,26 @@ const updateCardsFromCollection = async ({
         }
       }
 
-      if (shouldDestroy) {
-        for (const toDestroy of shouldDestroy) {
-          if (toDestroy.binderId !== defaultBinder) {
-            await toDestroy.destroy({ transaction });
-            const binder = await BindersCards.findOne({
-              where: { collectionCardId: toDestroy.id },
-            });
-            await binder.destroy({ transaction });
-          }
+      for (const toDestroy of shouldDestroy) {
+        if (toDestroy.binderId !== defaultBinder) {
+          await toDestroy.destroy({ transaction });
+          const binder = await BindersCards.findOne({
+            where: { collectionCardId: toDestroy.id },
+          });
+          await binder.destroy({ transaction });
         }
       }
 
       cardsProcessed.push({
         ...card,
-        sold,
+        reallySold,
         updated,
         error,
       });
     }
 
     await transaction.commit();
-    if (cardsProcessed.some((x) => x.sold || x.updated)) {
+    if (cardsProcessed.some((x) => x.reallySold || x.updated)) {
       cacheService.invalidate(
         generateKey(prefixes.CollectionService, "gcbc", {
           collection: collectionId,
