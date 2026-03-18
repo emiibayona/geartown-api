@@ -81,7 +81,7 @@ async function getCards({ collectionId, params }) {
       collectionWhere.name = sequelize.where(
         sequelize.fn("LOWER", sequelize.col("collection_card.name")),
         {
-          [Op.like]: `%${params.name.toLowerCase()}%`,
+          [Op.like]: `%${params.name.toLowerCase().trim()}%`,
         },
       );
     }
