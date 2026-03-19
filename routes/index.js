@@ -10,6 +10,7 @@ const productsRoutes = require("./ProductsRoutes");
 const orderRoutes = require("./OrdersRoutes");
 const cacheRoutes = require("./CacheRoutes");
 const filesRoutes = require("./FilesRouter");
+const cartRoutes = require("./CartRoutes")
 
 // TODO:
 // Agregar middleware para manejar las llamadas de admin o usuario comun.
@@ -23,6 +24,7 @@ router.use("/products", productsRoutes);
 router.use("/orders", orderRoutes);
 router.use("/cache", cacheRoutes);
 router.use("/files", filesRoutes);
+router.use("/carts", cartRoutes);
 
 router.get("/", (req, res) => {
   res.status(200).json({ test: "Tested" });

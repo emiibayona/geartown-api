@@ -50,7 +50,7 @@ async function connectToDatabase() {
 
 connectToDatabase();
 
-class Card extends Model {}
+class Card extends Model { }
 Card.init(
   {
     // Core IDs
@@ -135,7 +135,7 @@ Card.init(
   },
 );
 
-class CardFace extends Model {}
+class CardFace extends Model { }
 CardFace.init(
   {
     name: { type: DataTypes.STRING(255), allowNull: false },
@@ -164,7 +164,7 @@ CardFace.init(
 Card.hasMany(CardFace, { as: "card_faces", foreignKey: "cardId" });
 CardFace.belongsTo(Card, { foreignKey: "cardId" });
 
-class User extends Model {}
+class User extends Model { }
 User.init(
   {
     id: {
@@ -183,7 +183,7 @@ User.init(
   { sequelize, modelName: "user" },
 );
 
-class Collection extends Model {}
+class Collection extends Model { }
 Collection.init(
   {
     id: {
@@ -199,7 +199,7 @@ Collection.init(
 );
 
 // JOIN TABLE: User <-> Collection (Shared access)
-class CollectionUsers extends Model {}
+class CollectionUsers extends Model { }
 CollectionUsers.init(
   {
     // The magic is here:
@@ -222,7 +222,7 @@ CollectionUsers.init(
 );
 
 // JOIN TABLE: Collection <-> Card (The inventory)
-class CollectionCards extends Model {}
+class CollectionCards extends Model { }
 CollectionCards.init(
   {
     id: {
@@ -282,7 +282,7 @@ CollectionCards.init(
   },
 );
 
-class Binders extends Model {}
+class Binders extends Model { }
 Binders.init(
   {
     id: {
@@ -299,7 +299,7 @@ Binders.init(
     indexes: [{ fields: ["collectionId"] }],
   },
 );
-class BindersCards extends Model {}
+class BindersCards extends Model { }
 BindersCards.init(
   {
     binderId: {
@@ -328,7 +328,7 @@ BindersCards.init(
     ],
   },
 );
-class Set extends Model {}
+class Set extends Model { }
 Set.init(
   {
     id: {
@@ -355,7 +355,7 @@ Set.init(
   },
 );
 
-class Products extends Model {}
+class Products extends Model { }
 Products.init(
   {
     id: {
@@ -378,7 +378,7 @@ Products.init(
   },
 );
 
-class BuyOrders extends Model {}
+class BuyOrders extends Model { }
 BuyOrders.init(
   {
     id: {
@@ -406,6 +406,33 @@ BuyOrders.init(
     ],
   },
 );
+
+class Carts extends Model { }
+Carts.init({
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true,
+  },
+  game: { type: DataTypes.STRING(50), allowNull: false },
+  data: { type: DataTypes.JSON, allowNull: true },
+  email: { type: DataTypes.STRING(150), allowNull: false },
+  tenant: { type: DataTypes.STRING(100), allowNull: false },
+  type: {
+    type: DataTypes.ENUM(["wishlist", "cart"]),
+    defaultValue: "cart",
+    allowNull: false
+  },
+}, {
+  sequelize,
+  indexes: [
+    {
+      unique: true,
+      name: "uni_cart_person",
+      fields: ["type", "email", "tenant", "game"],
+    },
+  ],
+})
 
 // A User can have many Collections, and a Collection can belong to many Users
 User.belongsToMany(Collection, { through: CollectionUsers });
@@ -460,4 +487,5 @@ module.exports = {
   BindersCards,
   Products,
   BuyOrders,
+  Carts
 };

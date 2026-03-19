@@ -24,14 +24,12 @@ if (process.env.NODE_ENV !== "production") {
   if (["mysql", "sqlite"].includes(process.env.SQL_TYPE)) {
     sequelize.sync();
   }
-  // sequelize.sync().then(() => {
-  // connectToDatabase();
   app.listen(process.env.PORT, () =>
     console.log(
       `Server running on http://${process.env.HOST}:${process.env.PORT}`,
     ),
   );
-  // });
+
 } else {
   const { sequelize } = require("./database");
 }

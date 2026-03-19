@@ -9,6 +9,7 @@ util.prefixes = Object.freeze({
   ProductsService: "PS",
   BinderService: "BS",
   OrdersService: "OS",
+  CartsService: "CtS"
 });
 /**
  * Generates a stable cache key from an object of parameters

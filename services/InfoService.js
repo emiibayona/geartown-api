@@ -5,14 +5,9 @@ const { generateKey, prefixes } = require("../utils/CacheUtils");
 class InfoService {
   async getAllSets() {
     try {
-      return await cacheService.getOrSet(
-        generateKey(prefixes.InfoService, "gas"),
-        {},
-        () =>
-          Set.findAll({
-            order: [["name", "ASC"]], // Good practice to have a default sort
-          }),
-      );
+      return await Set.findAll({
+        order: [["name", "ASC"]], // Good practice to have a default sort
+      });
     } catch (error) {
       return error;
     }
