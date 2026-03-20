@@ -1,11 +1,35 @@
 const { User } = require("../database");
 const { generateKey, prefixes } = require("../utils/CacheUtils");
 const CacheService = require("./cacheService");
+const CartService = require("./CartService")
 const service = {};
 
 service.create = async function (body) {
-  if (!body) return "User coulnd't be created, body is required";
-  return await User.create(body);
+  try {
+
+    let user = await service.findUserByEmail(body.email)
+    if (!user) {
+      if (!body) return "User coulnd't be created, body is required";
+      user = await User.create(body);
+    }
+
+    if (user) {
+      const base = {
+        tenant: body.tenant,
+        email: body.email,
+        data: "{}",
+        game: 'magic',
+      };
+
+      await CartService.create({ ...base, type: 'cart' })
+      await CartService.create({ ...base, type: 'wishlist' })
+    }
+
+    return user;
+  } catch (err) {
+    throw err;
+  }
+
 };
 service.findUserByEmail = async function (email) {
   try {

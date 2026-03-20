@@ -18,20 +18,14 @@ app.use(cors(corsOptions));
 
 app.use("/api", routes);
 app.get("/test", (req, res) => res.send("API Working!"));
+const { sequelize } = require("./database");
 if (process.env.NODE_ENV !== "production") {
-  const { sequelize } = require("./database");
-
-  if (["mysql", "sqlite"].includes(process.env.SQL_TYPE)) {
-    sequelize.sync();
-  }
   app.listen(process.env.PORT, () =>
     console.log(
       `Server running on http://${process.env.HOST}:${process.env.PORT}`,
     ),
   );
 
-} else {
-  const { sequelize } = require("./database");
 }
 
 module.exports = app;

@@ -42,6 +42,7 @@ async function connectToDatabase() {
       });
     }
     await sequelize.authenticate();
+    // await sequelize.sync({ alter: true });
     console.log("Connection has been established successfully.");
   } catch (error) {
     console.error("Unable to connect to the database:", error);
@@ -175,10 +176,7 @@ User.init(
     username: { type: DataTypes.STRING(255), unique: true, allowNull: false },
     email: { type: DataTypes.STRING(255), unique: true, allowNull: false },
     password_hash: { type: DataTypes.STRING(255), allowNull: false },
-    type: {
-      type: DataTypes.ENUM("seller", "buyer", "admin"),
-      allowNull: false,
-    },
+    tenant: { type: DataTypes.STRING(100), allowNull: false },
   },
   { sequelize, modelName: "user" },
 );
