@@ -165,11 +165,11 @@ async function syncCore(url, type, func) {
           (d) => d.type === "all_cards",
         ).download_uri;
 
-        console.log(`📦 Downloading from: ${downloadUri}`);
+        console.log(`📦 Downloading from: ${uri}`);
 
         // 2. Setup streaming pipeline
         const pipeline = chain([
-          await axios({ url: downloadUri, responseType: "stream" }).then(
+          await axios({ url: uri, responseType: "stream" }).then(
             (res) => res.data,
           ),
           parser(),
