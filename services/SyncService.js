@@ -133,14 +133,12 @@ async function bulkUpsertCards(cardsArray) {
     });
 
     // 4. Update Faces (Delete then Re-insert is the safest bulk update for faces)
-    if (cardIds.length > 0) {
+    if (cardIds.length && faceRecords.length) {
       await CardFace.destroy({
         where: { cardId: { [Op.in]: cardIds } },
         transaction,
       });
-    }
 
-    if (faceRecords.length > 0) {
       await CardFace.bulkCreate(faceRecords, { transaction });
     }
 

@@ -54,7 +54,7 @@ controller.cardsByCollection = async function (req, res) {
   try {
     const result = await getCardsCollection(req.params, req.query);
     return res.status(200).json(result);
-  } catch (error) {}
+  } catch (error) { }
 };
 
 controller.getCardsToAddCart = async function (req, res) {
@@ -62,7 +62,7 @@ controller.getCardsToAddCart = async function (req, res) {
     if (!req.body) return res.status(400).send("Body required");
     const result = await getCardsBySomething(req.body);
     return res.status(200).json(result);
-  } catch (error) {}
+  } catch (error) { }
 };
 
 controller.cardsByUser = async function (req, res) {
@@ -120,7 +120,7 @@ controller.flushCache = async (req, res) => {
 
 controller.getBinders = async function (req, res) {
   try {
-    const result = await getBinders(req.params.collectionId);
+    const result = await getBinders(req.params.collectionId, req.query);
     res.status(200).json(result);
   } catch (error) {
     return res.status(500).json(error);

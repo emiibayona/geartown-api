@@ -344,15 +344,15 @@ const addRowsToCollection = async (rows, collectionId, binder) => {
         const cards = arCheck.filter(
           (x) =>
             x.collector_number ===
-              (cur["Collector Number"] || cur["Collector number"]) &&
+            (cur["Collector Number"] || cur["Collector number"]) &&
             (cur.Edition || cur["Set code"]).toLowerCase() === x.dataValues.set,
         );
         const card =
           cards.length === 1
             ? cards[0]
             : cards.find(
-                (x) => (Languages[cur.Language] || cur.Language) === x.lang,
-              );
+              (x) => (Languages[cur.Language] || cur.Language) === x.lang,
+            );
         try {
           if (!card) {
             summary.notAdded.push(cur);
@@ -670,10 +670,14 @@ async function ensureUserCollection({ user }) {
   }
 }
 
-async function getBinders(colId) {
+async function getBinders(colId, query) {
   try {
-    if (!colId) {
+    if ((!colId || colId === 'null') && !query?.email) {
       throw "collection id required";
+    }
+
+    if ((!colId || colId === 'null') && query?.email) {
+      colId = (await findCollectionByUser(query?.email))?.collectionId;
     }
 
     return await cacheService.getOrSet(

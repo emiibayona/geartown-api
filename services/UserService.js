@@ -17,7 +17,7 @@ service.create = async function (body) {
       const base = {
         tenant: body.tenant,
         email: body.email,
-        data: "{}",
+        data: "[]",
         game: 'magic',
       };
 
