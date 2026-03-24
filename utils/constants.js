@@ -1,4 +1,10 @@
 const constants = {
+  Games: {
+    MAGIC: "magic",
+    POKEMON: "pokemon",
+    YUGIOH: "yugioh",
+    RIFTBOUND: "riftbound",
+  },
   Languages: Object.freeze({
     English: "en",
     Spanish: "es",

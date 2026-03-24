@@ -66,6 +66,10 @@ module.exports = (sequelize, DataTypes) => {
         card_images: { type: DataTypes.JSON }, // Array
         card_prices: { type: DataTypes.JSON }, // Array
         misc_info: { type: DataTypes.JSON }, // Array
+        local_url: {
+            type: DataTypes.STRING,
+            allowNull: true,
+        },
     }, {
         indexes: [
             // 1. Búsqueda por nombre (Indispensable para el buscador)

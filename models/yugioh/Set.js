@@ -7,8 +7,8 @@ module.exports = (sequelize, DataTypes) => {
         },
         set_name: { type: DataTypes.STRING(255) },
         set_code: { type: DataTypes.STRING(255) },
-        num_of_cards: { type: DataTypes.DATEONLY },
-        tcg_date: { type: DataTypes.STRING(255) },
+        num_of_cards: { type: DataTypes.STRING(255) },
+        tcg_date: { type: DataTypes.DATEONLY },
         set_image: { type: DataTypes.STRING(255) },
     })
 };

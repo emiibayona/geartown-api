@@ -4,3 +4,5 @@ default-cards.json
 node_modules/
 dist/
 migrations/
+.vscode/launch.json
+.DS_Store

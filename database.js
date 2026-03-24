@@ -505,19 +505,22 @@ if (process.env.YUGIOH_MODELS_ENABLED) {
   addModels("yugioh")
 }
 
-sequelize.authenticate()
-  .then(() => {
-    console.log("✅ Connection established.");
-    // alter: true actualiza las tablas si agregas columnas nuevas
-    // return sequelize.sync({ force:true }); 
-    return sequelize.sync({ alter: false });
-  })
-  .then(() => {
-    console.log("✅ Tables synchronized/created.");
-  })
-  .catch(err => {
-    console.error("❌ Database error:", err);
-  });
+function log() {
+  sequelize.authenticate()
+    .then(() => {
+      console.log("✅ Connection established.");
+      // alter: true actualiza las tablas si agregas columnas nuevas
+      // return sequelize.sync({ force:true }); 
+      return sequelize.sync({ alter: false });
+    })
+    .then(() => {
+      console.log("✅ Tables synchronized/created.");
+    })
+    .catch(err => {
+      console.error("❌ Database error:", err);
+    });
+}
+log();
 
 
 module.exports = db;
