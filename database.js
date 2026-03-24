@@ -132,6 +132,7 @@ Card.init(
       { fields: ["released_at"] }, // Sorting by newest cards
       { fields: ["cmc"] }, // Filtering by mana value
       { fields: ["rarity"] }, // Filtering by rarity
+      { fields: ["lang"] }, // Filtering by rarity
     ],
   },
 );
