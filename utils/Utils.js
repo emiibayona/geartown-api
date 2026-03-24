@@ -18,7 +18,7 @@ const getBoundaries = (bond) => {
     page: parseInt(bond?.page || 1),
   };
 };
-const getGame = (req) => req.params.game || req.body.game;
+const getGame = (req) => req?.params?.game || req?.body?.game;
 
 const getLowerColLike = (col, value) =>
   sequelize.where(

@@ -3,7 +3,7 @@ const sharp = require("sharp");
 
 const service = {};
 
-service.optimizeImages = async (file, raw = false) => {
+service.optimizeImages = async (file, raw = false, options = {}) => {
   if (raw) return { buffer: file, name: file.originalname };
 
   return {
@@ -14,17 +14,17 @@ service.optimizeImages = async (file, raw = false) => {
     name: file.originalname.replace(/\.[^/.]+$/, "") + ".webp",
     options: {
       contentType: "image/webp",
-      addRandomSuffix: true,
+      addRandomSuffix: options.subfix,
       cacheControlMaxAge: 31536000, // 1 año de caché en el navegador
     },
   };
 };
 
-service.uploadImage = async (file) => {
+service.uploadImage = async (file, query) => {
   try {
     if (!file) throw "File is required";
 
-    const optimizedFile = await service.optimizeImages(file);
+    const optimizedFile = await service.optimizeImages(file, false, { subfix: query?.subfix || false });
     const blob = await put(
       `images/${Date.now()}-${optimizedFile.name}`,
       optimizedFile.buffer,

@@ -1,55 +1,59 @@
-const { Sequelize, DataTypes, Model, DATE, UUIDV4 } = require("sequelize");
+const { Sequelize, DataTypes, QueryTypes, Op, Model, DATE, UUIDV4 } = require("sequelize");
 const mysql2 = require("mysql2");
+const path = require("path");
+const fs = require("fs");
 let sequelize = null;
 
-// Test the connection
-async function connectToDatabase() {
-  try {
-    // SQLITE
-    if (process.env.SQL_TYPE === "sqlite") {
-      sequelize = new Sequelize({
-        dialect: "sqlite",
-        storage: "./mtg_database.sqlite",
-        logging: true,
-      });
-    }
+const addModels = (folder = "") => {
+  const modelsPath = path.join(__dirname, `../gt-api/models/${folder}`); // Asegúrate de que la ruta sea correcta
 
-    if (process.env.SQL_TYPE === "mysql") {
-      // MYSQL
-      sequelize = new Sequelize("geartownDb", "root", "", {
-        host: "localhost",
-        dialect: "mysql",
-        port: process.env.SQL_PORT || 3306,
-      });
-    }
-
-    // MYSQ TIDB
-    if (process.env.SQL_TYPE === "vercel") {
-      sequelize = new Sequelize(process.env.TIDB_URL, {
-        dialect: "mysql",
-        dialectModule: mysql2,
-        dialectOptions: {
-          ssl: {
-            rejectUnauthorized: true,
-          },
-        },
-        pool: {
-          max: 5,
-          min: 0,
-          acquire: 30000,
-          idle: 10000,
-        },
-      });
-    }
-    await sequelize.authenticate();
-    // await sequelize.sync({ alter: true });
-    console.log("Connection has been established successfully.");
-  } catch (error) {
-    console.error("Unable to connect to the database:", error);
+  if (fs.existsSync(modelsPath)) {
+    db[folder] = {};
+    fs.readdirSync(modelsPath).forEach((file) => {
+      if (!file.startsWith(".") && file.endsWith(".js")) {
+        const modelName = file.split(".")[0];
+        // Importante: pasar sequelize y DataTypes
+        db[folder][modelName] = require(path.join(modelsPath, file))(sequelize, DataTypes);
+      }
+    });
   }
 }
+// SQLITE
+if (process.env.SQL_TYPE === "sqlite") {
+  sequelize = new Sequelize({
+    dialect: "sqlite",
+    storage: "./mtg_database.sqlite",
+    logging: true,
+  });
+}
 
-connectToDatabase();
+if (process.env.SQL_TYPE === "mysql") {
+  // MYSQL
+  sequelize = new Sequelize("geartownDb", "root", "", {
+    host: "localhost",
+    dialect: "mysql",
+    port: process.env.SQL_PORT || 3306,
+  });
+}
+
+// MYSQ TIDB
+if (process.env.SQL_TYPE === "vercel") {
+  sequelize = new Sequelize(process.env.TIDB_URL, {
+    dialect: "mysql",
+    dialectModule: mysql2,
+    dialectOptions: {
+      ssl: {
+        rejectUnauthorized: true,
+      },
+    },
+    pool: {
+      max: 5,
+      min: 0,
+      acquire: 30000,
+      idle: 10000,
+    },
+  });
+}
 
 class Card extends Model { }
 Card.init(
@@ -472,9 +476,7 @@ CollectionCards.belongsTo(Card);
 //   through: BindersCards,
 // });
 
-module.exports = {
-  connectToDatabase,
-  sequelize,
+const magicDbModels = {
   Set,
   Card,
   CardFace,
@@ -486,5 +488,36 @@ module.exports = {
   BindersCards,
   Products,
   BuyOrders,
-  Carts
-};
+  Carts,
+}
+
+const db = {
+  sequelize,
+  // Compatibility for now
+  ...magicDbModels,
+  magic: magicDbModels,
+  DataTypes,
+  QueryTypes,
+  Op
+}
+
+if (process.env.YUGIOH_MODELS_ENABLED) {
+  addModels("yugioh")
+}
+
+sequelize.authenticate()
+  .then(() => {
+    console.log("✅ Connection established.");
+    // alter: true actualiza las tablas si agregas columnas nuevas
+    // return sequelize.sync({ force:true }); 
+    return sequelize.sync({ alter: false });
+  })
+  .then(() => {
+    console.log("✅ Tables synchronized/created.");
+  })
+  .catch(err => {
+    console.error("❌ Database error:", err);
+  });
+
+
+module.exports = db;
