@@ -2,7 +2,7 @@ const axios = require("axios");
 const { chain } = require("stream-chain");
 const { parser } = require("stream-json");
 const { streamArray } = require("stream-json/streamers/StreamArray");
-const { sequelize, Card, CardFace, Set } = require("../database");
+const { sequelize, Card, CardFace, Set, yugioh: YugiohModels } = require("../database");
 const { Op } = require("sequelize");
 const { chunkArray } = require("../utils/Utils");
 // const { sequelize, Card, CardFace } = require("./models"); // Import your models
@@ -212,18 +212,10 @@ async function syncCore(url, type, func) {
           console.error("🛑 Stream error:", err);
         });
 
-      // const response = await axios.get(defaultCardsUrl);
-      // cards = response.data;
-
-      // console.log(`Syncing ${cards.length} cards to SQLite...`);
-
-      // Using bulkCreate with updateOnDuplicate to handle "Create and Update" logic
-      // await bulkUpsertCards(cards);
 
       case "sets":
         metadata = await axios.get(url, options);
 
-        console.log(metadata);
         const rows = chunkArray(metadata.data.data, 200);
         for (const row of rows) {
           await func(row);
@@ -232,7 +224,6 @@ async function syncCore(url, type, func) {
       default:
     }
 
-    // const metadata = await axios.get("https://api.scryfall.com/bulk-data");
   } catch (error) {
     console.error("Sync failed:", error.message);
     throw error;
@@ -255,13 +246,14 @@ async function syncCards() {
   }
 }
 
-async function syncSets() {
+async function syncSets(game) {
   try {
     console.log("Fetching sets metadata...");
     return await syncCore(
       "https://api.scryfall.com/sets",
       "sets",
       bulkUpsertSets,
+      game
     );
   } catch (error) {
     console.error("Sync failed:", error.message);
@@ -269,4 +261,125 @@ async function syncSets() {
   }
 }
 
-module.exports = { syncCards, syncSets };
+async function syncCoreYugioh(url, type) {
+  try {
+    const options = {
+      headers: { "User-Agent": "GearTownApp/1.0", Accept: "application/json" },
+    };
+    console.log("Fetching bulk data metadata...");
+    let metadata = null;
+    const response = await fetch(url);
+    const json = await response.json();
+    const values = json?.data || json;
+    const chunks = chunkArray(values, 250);
+    switch (type) {
+      case "cards":
+        for (const chunk of chunks) {
+          const transaction = await sequelize.transaction();
+          try {
+            const cardFieldsToUpdate = Object.keys(YugiohModels?.Card?.getAttributes()).filter(
+              (key) => key !== "id",
+            );
+
+            await YugiohModels?.Card?.bulkCreate(chunk.map(x => ({ ...x, cardIdYgo: x.id })), {
+              updateOnDuplicate: cardFieldsToUpdate,
+              transaction,
+            });
+            await transaction.commit();
+            console.log(`Successfully processed ${chunk.length} cards.`);
+          } catch (error) {
+            await transaction.rollback();
+            console.error("Bulk Upsert failed:", error);
+            throw error;
+          }
+        }
+        break;
+      case "sets":
+        for (const chunk of chunks) {
+          const transaction = await sequelize.transaction();
+          try {
+            const fieldsToUpdate = Object.keys(YugiohModels?.Set?.getAttributes()).filter(
+              (key) => key !== "id",
+            );
+
+            await YugiohModels?.Set?.bulkCreate(chunk, {
+              updateOnDuplicate: fieldsToUpdate,
+              transaction,
+            });
+            await transaction.commit();
+            console.log(`Successfully processed ${chunk.length} cards.`);
+          } catch (error) {
+            await transaction.rollback();
+            console.error("Bulk Upsert failed:", error);
+            throw error;
+          }
+        }
+        break;
+      case "archetypes":
+        for (const chunk of chunks) {
+          const transaction = await sequelize.transaction();
+          try {
+            const fieldsToUpdate = Object.keys(YugiohModels?.Archetype?.getAttributes()).filter(
+              (key) => key !== "id",
+            );
+
+            await YugiohModels?.Archetype?.bulkCreate(chunk, {
+              updateOnDuplicate: fieldsToUpdate,
+              transaction,
+            });
+            await transaction.commit();
+            console.log(`Successfully processed ${chunk.length} cards.`);
+          } catch (error) {
+            await transaction.rollback();
+            console.error("Bulk Upsert failed:", error);
+            throw error;
+          }
+        }
+        break;
+      default:
+    }
+    return { process: values.length }
+  } catch (error) {
+    console.error("Sync failed:", error.message);
+    throw error;
+  }
+}
+
+async function yugiohSyncCards() {
+  try {
+    console.log("Fetching cards metadata...");
+    return await syncCoreYugioh(
+      "https://db.ygoprodeck.com/api/v7/cardinfo.php?misc=yes",
+      "cards",
+    );
+  } catch (error) {
+    console.error("Sync failed:", error.message);
+    throw error;
+  }
+}
+async function yugiohSyncSets() {
+  try {
+    console.log("Fetching Sets metadata...");
+    return await syncCoreYugioh(
+      "https://db.ygoprodeck.com/api/v7/cardsets.php",
+      "sets",
+    );
+  } catch (error) {
+    console.error("Sync failed:", error.message);
+    throw error;
+  }
+}
+async function yugiohSyncArchetypes() {
+  try {
+    console.log("Fetching Sets metadata...");
+    return await syncCoreYugioh(
+      "https://db.ygoprodeck.com/api/v7/archetypes.php",
+      "archetypes",
+    );
+  } catch (error) {
+    console.error("Sync failed:", error.message);
+    throw error;
+  }
+}
+
+module.exports = { syncCards, syncSets, yugiohSyncCards, yugiohSyncSets, yugiohSyncArchetypes };
