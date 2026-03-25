@@ -620,9 +620,9 @@ const magicDbModels = {
 }
 
 const yugiohDbModels = {
-  YugiohCardArchetype,
-  YugiohSet,
-  YugiohCard,
+  Archetype: YugiohCardArchetype,
+  Set: YugiohSet,
+  Card: YugiohCard,
 }
 
 const db = {
