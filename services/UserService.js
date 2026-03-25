@@ -1,5 +1,6 @@
 const { User } = require("../database");
 const { generateKey, prefixes } = require("../utils/CacheUtils");
+const { Games } = require("../utils/constants");
 const CacheService = require("./cacheService");
 const CartService = require("./CartService")
 const service = {};
@@ -14,15 +15,7 @@ service.create = async function (body) {
     }
 
     if (user) {
-      const base = {
-        tenant: body.tenant,
-        email: body.email,
-        data: "[]",
-        game: 'magic',
-      };
-
-      await CartService.create({ ...base, type: 'cart' })
-      await CartService.create({ ...base, type: 'wishlist' })
+      await service.createCartsForUser(body)
     }
 
     return user;

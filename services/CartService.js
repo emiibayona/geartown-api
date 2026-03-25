@@ -1,5 +1,6 @@
-const { Carts } = require("../database");
+const { Carts, magic: MagicModels } = require("../database");
 const { prefixes, generateKey } = require("../utils/CacheUtils");
+const { Games } = require("../utils/constants");
 const cacheService = require("./cacheService");
 
 const service = {};
@@ -30,20 +31,33 @@ service.get = async (params) => {
     );
 }
 
-service.create = async (body) => {
+service.create = async (body, skipClean = false) => {
     if (!body.data) throw "data field required"
 
     body.data = typeof body?.data === "string"
         ? body.data
         : JSON.stringify(body.data);
 
-    const created = await Carts.create(body);
+    const [cart, created] = await Carts.findCreateFind({
+        where: {
+            email: body.email,
+            game: body.game,
+            type: body.type,
+            tenant: body.tenant
+        },
+        // Valores adicionales que se guardarán SOLO si el carrito es nuevo
+        defaults: {
+            ...body // Aquí puedes pasar el resto de los datos (items, status, etc.)
+        }
+    });
 
-    cacheService.invalidate(
-        generateKey(prefixes.CartsService, "gcw"),
-    );
+    if (created && !skipClean) {
+        cacheService.invalidate(
+            generateKey(prefixes.CartsService, "gcw"),
+        );
+    }
 
-    return created;
+    return cart || created ? body : false;
     // return { data: res[0], new: res[1] }
 }
 
@@ -64,5 +78,27 @@ service.update = async (id, body) => {
         return { data: JSON.parse(body.data), id }
     }
 }
+
+service.syncUser = async function (body, all = false) {
+    try {
+        let users = [body];
+        if (all) {
+            users = await MagicModels.User.findAll({ raw: true, attributes: ['email', 'tenant', 'id'] });
+        }
+        for (const usr of users) {
+            for (const element of Object.values(Games)) {
+                await Promise.all([
+                    service.create({ data: "[]", email: usr.email, tenant: usr.tenant, game: element, type: 'cart' }, true),
+                    service.create({ data: "[]", email: usr.email, tenant: usr.tenant, game: element, type: 'wishlist' }, false)
+                ])
+            }
+        }
+        return "Success"
+    } catch (error) {
+        return error;
+    }
+}
+
+
 
 module.exports = service;
