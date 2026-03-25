@@ -4,7 +4,7 @@ const { getBoundaries } = require("../../utils/Utils");
 const cacheService = require("../cacheService");
 const filesService = require("../FilesService")
 
-const { Card } = require("../../database")?.yugioh;
+const { yugioh: YugiohModels } = require("../../database");
 const service = {};
 
 service.getCards = async (query) => {
@@ -33,7 +33,7 @@ service.getCards = async (query) => {
                     },
                 );
             }
-            const cards = await Card.findAndCountAll({ ...boundaries, where: wheres });
+            const cards = await YugiohModels?.Card.findAndCountAll({ ...boundaries, where: wheres });
             for (const element of cards.rows) {
                 if (!element.local_url) {
                     const res = await filesService.getImage({ game: query.game, id: element.name, folder: 'new' }, { url: element?.card_images[0]?.image_url, skipFirstFetch: true })
