@@ -43,7 +43,7 @@ service.uploadImage = async (file, query) => {
   }
 };
 
-service.getImage = async ({ game, id }, options) => {
+service.getImage = async ({ game, id, folder }, options) => {
   try {
     const remoteUrl = options.url;
     if (!remoteUrl)
@@ -52,13 +52,17 @@ service.getImage = async ({ game, id }, options) => {
     const fileName = `${id}`;
     let res = null;
 
-    res = await CardService.getLocalImage({ game, id });
+    if (!options.skipFirstFetch) {
+      res = await CardService.getLocalImage({ game, id });
+    }
+
     if (!res) {
       try {
-        const existingBlob = await head(`images/${game}/${fileName}.webp`, {
+        const existingBlob = await head(`images/${game}/${folder ? folder + '/' : ''}${fileName}.webp`, {
           access: "public",
           token: process.env.BLOB_READ_WRITE_TOKEN,
           cache: 'no-store',
+          cacheControlMaxAge: 31536000, // 1 año de caché en el navegador
         });
         await CardService.updateLocalImage({ id, game }, existingBlob.url);
         return existingBlob.url;
@@ -67,7 +71,7 @@ service.getImage = async ({ game, id }, options) => {
       }
 
       const response = await axios.get(remoteUrl, { responseType: 'arraybuffer' });
-      res = await service.uploadImage(response.data, { subfix: false, name: fileName, folder: game });
+      res = await service.uploadImage(response.data, { subfix: false, name: fileName, folder: `${game}${folder ? '/' + folder : ''}` });
 
       await CardService.updateLocalImage({ id, game }, res.url);
 

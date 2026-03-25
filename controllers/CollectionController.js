@@ -8,6 +8,8 @@ const {
   updateCardsFromCollection,
   getCardsBySomething,
 } = require("../services/CollectionService");
+const { getCards } = require("../services/Yugioh/CardsService");
+const { Games } = require("../utils/constants");
 const { parseCSV } = require("../utils/CsvParser");
 const { getGame } = require("../utils/Utils");
 const controller = {};
@@ -42,9 +44,16 @@ controller.initCollection = async function (req, res) {
   }
 };
 
-const getCardsCollection = async (params, query) => {
+const getCardsCollection = async (params, query, game = Games.MAGIC) => {
   try {
-    return await getCardsByCollection(params.collectionId, query);
+    let result = {};
+    if (game === Games.MAGIC) {
+
+      result = await getCardsByCollection(params.collectionId, query);
+    } else if (Games.YUGIOH) {
+      result = await getCards(query);
+    }
+    return result;
   } catch (error) {
     res.status(500).json({ error: "Failed on retrieve collection cards" });
   }
@@ -53,6 +62,12 @@ const getCardsCollection = async (params, query) => {
 controller.cardsByCollection = async function (req, res) {
   try {
     const result = await getCardsCollection(req.params, req.query);
+    return res.status(200).json(result);
+  } catch (error) { }
+};
+controller.cardsByGameCollection = async function (req, res) {
+  try {
+    const result = await getCardsCollection(req.params, req.query, getGame(req));
     return res.status(200).json(result);
   } catch (error) { }
 };
