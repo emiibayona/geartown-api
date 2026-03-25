@@ -501,9 +501,10 @@ const db = {
   Op
 }
 
-if (process.env.YUGIOH_MODELS_ENABLED) {
-  addModels("yugioh")
-}
+// if (process.env.YUGIOH_MODELS_ENABLED) {
+console.log("On PROD: Loading YuGiOh Models")
+addModels("yugioh")
+// }
 
 function log() {
   sequelize.authenticate()
