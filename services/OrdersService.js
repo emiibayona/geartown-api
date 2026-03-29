@@ -4,6 +4,7 @@ const { BuyOrders, sequelize } = require("../database");
 const { getBoundaries, getLowerColLike } = require("../utils/Utils");
 const { updateCardsFromCollection } = require("./CollectionService");
 const { Op, col } = require("sequelize");
+const { Games } = require("../utils/constants");
 class OrdersService {
   async getOrders({ game, order, query }) {
     try {
@@ -92,9 +93,18 @@ class OrdersService {
       if (!order?.name) throw "Nombre requerido";
       if (!order?.contact) throw "Contacto requerido";
 
-      const result = order.forceClose
-        ? order.cart
-        : await updateCardsFromCollection(order);
+      let result = order.cards;
+
+      if (!order.forceClose) {
+        if (game === Games.MAGIC) {
+          result = await updateCardsFromCollection(order);
+        } else if (game === Games.YUGIOH) {
+          result = order.cards.map((x) => ({
+            ...x,
+            reallySold: true
+          }));
+        }
+      }
 
       if (result?.length || order.forceClose) {
         await BuyOrders.update(
