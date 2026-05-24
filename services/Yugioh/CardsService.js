@@ -33,11 +33,10 @@ service.getCards = async (query) => {
                     },
                 );
             }
-            console.log("Yugioh Models", YugiohModels)
             const cards = await YugiohModels?.Card.findAndCountAll({ ...boundaries, where: wheres });
             for (const element of cards?.rows) {
-                if (!element.local_url) {
-                    const res = await filesService.getImage({ game: query.game, id: element.name, folder: 'new' }, { url: element?.card_images[0]?.image_url, skipFirstFetch: true })
+                if (!element.local_url || !element.local_url.includes("cloudinary")) {
+                    const res = await filesService.getImage({ game: query.game, id: element.name, folder: 'yugioh' }, { url: element?.card_images[0]?.image_url, skipFirstFetch: true })
                     element.local_url = res?.url || res;
                 }
             }

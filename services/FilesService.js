@@ -2,6 +2,7 @@ const { put, head } = require("@vercel/blob");
 const { default: axios } = require("axios");
 const sharp = require("sharp");
 const CardService = require("./CardService");
+const CloudService = require("./CloudinaryService");
 
 const service = {};
 
@@ -56,23 +57,23 @@ service.getImage = async ({ game, id, folder }, options) => {
       res = await CardService.getLocalImage({ game, id });
     }
 
-    if (!res) {
-      try {
-        const existingBlob = await head(`images/${game}/${folder ? folder + '/' : ''}${fileName}.webp`, {
-          access: "public",
-          token: process.env.BLOB_READ_WRITE_TOKEN,
-          cache: 'no-store',
-          cacheControlMaxAge: 31536000, // 1 año de caché en el navegador
-        });
-        await CardService.updateLocalImage({ id, game }, existingBlob.url);
-        return existingBlob.url;
-      } catch (e) {
-        console.log(`Descargando imagen nueva: ${id}`);
-      }
+    if (!res || !res.includes("cloudinary")) {
+      // try {
+      //   const existingBlob = await head(`images/${game}/${folder ? folder + '/' : ''}${fileName}.webp`, {
+      //     access: "public",
+      //     token: process.env.BLOB_READ_WRITE_TOKEN,
+      //     cache: 'no-store',
+      //     cacheControlMaxAge: 31536000, // 1 año de caché en el navegador
+      //   });
+      //   await CardService.updateLocalImage({ id, game }, existingBlob.url);
+      //   return existingBlob.url;
+      // } catch (e) {
+      //   console.log(`Descargando imagen nueva: ${id}`);
+      // }
 
       const response = await axios.get(remoteUrl, { responseType: 'arraybuffer' });
-      res = await service.uploadImage(response.data, { subfix: false, name: fileName, folder: `${game}${folder ? '/' + folder : ''}` });
 
+      res = await CloudService.uploadImage(response.data, { name: fileName, folder: `${game}${folder ? '/' + folder : ''}` });
       await CardService.updateLocalImage({ id, game }, res.url);
 
     }
